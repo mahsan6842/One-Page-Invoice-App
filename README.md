@@ -11,6 +11,7 @@ A simple, portable invoice management system that works offline, compatible with
 - ✅ رمز QR متوافق مع هيئة الزكاة والضريبة
 - ✅ طباعة PDF بتنسيق احترافي
 - ✅ سجل كامل للفواتير مع بحث
+- ✅ تصدير سجل الفواتير (CSV لبرنامج Excel + تصدير PDF متعدد)
 - ✅ نسخ احتياطي للبيانات
 - ✅ يعمل بدون إنترنت
 
@@ -31,16 +32,25 @@ A simple, portable invoice management system that works offline, compatible with
 
 ✅ تأكد من تفعيل "Add Python to PATH" أثناء التثبيت
 
-### 2. تثبيت المكتبات المطلوبة
+**الحد الأدنى المقترح:** Python 3.8+
+
+### 2. إنشاء بيئة افتراضية (اختياري لكنه مُستحسن)
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\activate
+```
+
+### 3. تثبيت المكتبات المطلوبة
 
 افتح موجه الأوامر (Command Prompt) وانتقل إلى مجلد البرنامج:
 
 ```powershell
-cd C:\InvoiceApp
+cd "path\to\InvoiceApp"
 pip install -r requirements.txt
 ```
 
-### 3. تشغيل البرنامج
+### 4. تشغيل البرنامج
 
 ```powershell
 python main.py
@@ -57,11 +67,13 @@ InvoiceApp/
 │
 ├── app/                   # منطق التطبيق
 │   ├── database.py        # قاعدة البيانات SQLite
+│   ├── exporter.py        # تصدير سجل الفواتير (CSV/PDF)
 │   ├── invoice_logic.py   # حسابات الفواتير
 │   ├── pdf_generator.py   # إنشاء ملفات PDF
 │   └── qr_generator.py    # إنشاء رموز QR
 │
 ├── ui/                    # واجهة المستخدم
+│   ├── export_dialog.py   # نافذة التقدم أثناء التصدير
 │   ├── main_window.py     # النافذة الرئيسية
 │   ├── invoice_form.py    # نموذج الفاتورة
 │   ├── invoice_history.py # سجل الفواتير
@@ -70,9 +82,9 @@ InvoiceApp/
 │   └── widgets.py         # عناصر واجهة مخصصة
 │
 ├── data/                  # قاعدة البيانات
-│   └── invoices.db        # ملف SQLite
+│   └── invoices.db        # ملف SQLite (يُنشأ تلقائياً عند التشغيل)
 │
-├── assets/                # الموارد
+├── assets/                # الموارد (تُنشأ تلقائياً عند التشغيل)
 │   ├── fonts/             # الخطوط العربية
 │   └── images/            # الصور والشعارات
 │
@@ -95,6 +107,14 @@ InvoiceApp/
 1. انتقل إلى تبويب "سجل الفواتير"
 2. استخدم البحث للعثور على فاتورة
 3. انقر نقراً مزدوجاً لعرض الفاتورة
+
+### تصدير سجل الفواتير (CSV / PDF)
+
+1. انتقل إلى تبويب "سجل الفواتير"
+2. اختر الفواتير المطلوبة
+3. اختر نوع التصدير:
+   - **CSV**: ملف واحد مناسب للفتح في Excel (يدعم العربية)
+   - **PDF**: إنشاء ملف PDF لكل فاتورة داخل مجلد تختاره
 
 ### تعديل إعدادات المؤسسة
 
@@ -131,6 +151,8 @@ pyinstaller --onefile --windowed --name="InvoiceApp" --icon=assets/icon.ico main
 
 سيتم إنشاء الملف في مجلد `dist/InvoiceApp.exe`
 
+> ملاحظة: إذا لم يكن لديك ملف أيقونة، احذف الخيار `--icon=assets/icon.ico`.
+
 ## 🔤 دعم اللغة العربية - Arabic Support
 
 للحصول على عرض أفضل للنص العربي في PDF، يُنصح بتحميل خط عربي:
@@ -159,5 +181,5 @@ pyinstaller --onefile --windowed --name="InvoiceApp" --icon=assets/icon.ico main
 
 ---
 
-**تم التطوير بواسطة - Developed by:** GitHub Copilot  
+**تم التطوير بواسطة - Developed by:** Contributors  
 **التاريخ - Date:** January 2026
