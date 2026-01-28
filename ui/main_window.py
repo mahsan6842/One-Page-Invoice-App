@@ -12,6 +12,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.database import get_database
+from app.i18n import LANG_AR, LANG_EN, t, set_current_lang
 from ui.invoice_form import InvoiceForm
 from ui.invoice_history import InvoiceHistory
 from ui.invoice_view import InvoiceView
@@ -24,12 +25,15 @@ class MainWindow:
     
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title("نظام الفواتير - Invoice System")
-        self.root.geometry("1024x768")
-        self.root.minsize(800, 600)
-        
         # Initialize database
         self.db = get_database()
+        settings = self.db.get_company_settings()
+        self.lang = settings.get('ui_language', LANG_AR) or LANG_AR
+        set_current_lang(self.lang)
+
+        self.root.title(t("app.title", self.lang))
+        self.root.geometry("1024x768")
+        self.root.minsize(800, 600)
         
         # Configure styles
         self._configure_styles()
@@ -39,6 +43,9 @@ class MainWindow:
         self._create_toolbar()
         self._create_notebook()
         self._create_statusbar()
+
+        # Apply initial language to all UI
+        self.apply_language(self.lang)
         
         # Center window
         self._center_window()
@@ -66,59 +73,80 @@ class MainWindow:
     
     def _create_menu(self):
         """Create menu bar"""
-        menubar = tk.Menu(self.root)
-        self.root.config(menu=menubar)
+        self.menubar = tk.Menu(self.root)
+        self.root.config(menu=self.menubar)
         
         # File menu
-        file_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="ملف", menu=file_menu)
-        file_menu.add_command(label="فاتورة جديدة", command=self._new_invoice,
-                             accelerator="Ctrl+N")
-        file_menu.add_separator()
-        file_menu.add_command(label="نسخ احتياطي", command=self._backup)
-        file_menu.add_separator()
-        file_menu.add_command(label="خروج", command=self._on_close,
-                             accelerator="Alt+F4")
+        self.file_menu = tk.Menu(self.menubar, tearoff=0)
+        self.menubar.add_cascade(label=t("menu.file", self.lang), menu=self.file_menu)
+        self.file_menu.add_command(label=t("menu.newInvoice", self.lang), command=self._new_invoice,
+                                   accelerator="Ctrl+N")
+        self.file_menu.add_separator()
+        self.file_menu.add_command(label=t("menu.backup", self.lang), command=self._backup)
+        self.file_menu.add_separator()
+        self.file_menu.add_command(label=t("menu.exit", self.lang), command=self._on_close,
+                                   accelerator="Alt+F4")
         
         # View menu
-        view_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="عرض", menu=view_menu)
-        view_menu.add_command(label="الرئيسية", command=lambda: self._switch_tab(0))
-        view_menu.add_command(label="سجل الفواتير", command=lambda: self._switch_tab(1))
-        view_menu.add_command(label="الإعدادات", command=lambda: self._switch_tab(2))
+        self.view_menu = tk.Menu(self.menubar, tearoff=0)
+        self.menubar.add_cascade(label=t("menu.view", self.lang), menu=self.view_menu)
+        self.view_menu.add_command(label=t("menu.home", self.lang), command=lambda: self._switch_tab(0))
+        self.view_menu.add_command(label=t("menu.history", self.lang), command=lambda: self._switch_tab(1))
+        self.view_menu.add_command(label=t("menu.settings", self.lang), command=lambda: self._switch_tab(2))
+
+        # Language menu
+        self.lang_menu = tk.Menu(self.menubar, tearoff=0)
+        self.menubar.add_cascade(label=t("menu.language", self.lang), menu=self.lang_menu)
+        self.lang_var = tk.StringVar(value=self.lang)
+        self.lang_menu.add_radiobutton(
+            label=t("menu.language.en", self.lang),
+            value=LANG_EN,
+            variable=self.lang_var,
+            command=self._on_language_change,
+        )
+        self.lang_menu.add_radiobutton(
+            label=t("menu.language.ar", self.lang),
+            value=LANG_AR,
+            variable=self.lang_var,
+            command=self._on_language_change,
+        )
         
         # Help menu
-        help_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="مساعدة", menu=help_menu)
-        help_menu.add_command(label="حول البرنامج", command=self._show_about)
+        self.help_menu = tk.Menu(self.menubar, tearoff=0)
+        self.menubar.add_cascade(label=t("menu.help", self.lang), menu=self.help_menu)
+        self.help_menu.add_command(label=t("menu.about", self.lang), command=self._show_about)
         
         # Keyboard shortcuts
         self.root.bind('<Control-n>', lambda e: self._new_invoice())
     
     def _create_toolbar(self):
         """Create toolbar"""
-        toolbar = ttk.Frame(self.root)
-        toolbar.pack(fill='x', padx=5, pady=5)
+        self.toolbar = ttk.Frame(self.root)
+        self.toolbar.pack(fill='x', padx=5, pady=5)
         
         # Toolbar buttons
-        ttk.Button(toolbar, text="🏠 الرئيسية", 
-                  command=lambda: self._switch_tab(0), width=12).pack(side='right', padx=2)
-        ttk.Button(toolbar, text="📋 السجل", 
-                  command=lambda: self._switch_tab(1), width=12).pack(side='right', padx=2)
-        ttk.Button(toolbar, text="⚙️ الإعدادات", 
-                  command=lambda: self._switch_tab(2), width=12).pack(side='right', padx=2)
+        self.btn_home = ttk.Button(self.toolbar, text=t("toolbar.home", self.lang),
+                                   command=lambda: self._switch_tab(0), width=12)
+        self.btn_home.pack(side='right', padx=2)
+        self.btn_history = ttk.Button(self.toolbar, text=t("toolbar.history", self.lang),
+                                      command=lambda: self._switch_tab(1), width=12)
+        self.btn_history.pack(side='right', padx=2)
+        self.btn_settings = ttk.Button(self.toolbar, text=t("toolbar.settings", self.lang),
+                                       command=lambda: self._switch_tab(2), width=12)
+        self.btn_settings.pack(side='right', padx=2)
         
         # Separator
-        ttk.Separator(toolbar, orient='vertical').pack(side='right', fill='y', padx=10)
+        ttk.Separator(self.toolbar, orient='vertical').pack(side='right', fill='y', padx=10)
         
-        ttk.Button(toolbar, text="➕ فاتورة جديدة", 
-                  command=self._new_invoice, width=15).pack(side='right', padx=2)
+        self.btn_new_invoice = ttk.Button(self.toolbar, text=t("toolbar.newInvoice", self.lang),
+                                          command=self._new_invoice, width=15)
+        self.btn_new_invoice.pack(side='right', padx=2)
         
         # Company name on left
         settings = self.db.get_company_settings()
-        company_name = settings.get('company_name_ar', 'نظام الفواتير')
-        ttk.Label(toolbar, text=company_name, 
-                 font=('Arial', 12, 'bold')).pack(side='left', padx=10)
+        self.company_label = ttk.Label(self.toolbar, text=settings.get('company_name_ar', 'نظام الفواتير'),
+                                       font=('Arial', 12, 'bold'))
+        self.company_label.pack(side='left', padx=10)
     
     def _create_notebook(self):
         """Create tabbed interface"""
@@ -131,7 +159,7 @@ class MainWindow:
             on_save=self._on_invoice_saved,
             on_save_print=self._on_invoice_save_print
         )
-        self.notebook.add(self.invoice_form, text="   🏠 الرئيسية   ")
+        self.notebook.add(self.invoice_form, text=t("tab.home", self.lang))
         
         # Tab 2: Invoice History
         self.invoice_history = InvoiceHistory(
@@ -139,17 +167,104 @@ class MainWindow:
             on_view=self._on_view_invoice,
             on_edit=self._on_edit_invoice
         )
-        self.notebook.add(self.invoice_history, text="   📋 سجل الفواتير   ")
+        self.notebook.add(self.invoice_history, text=t("tab.history", self.lang))
         
         # Tab 3: Settings
         self.settings_screen = SettingsScreen(self.notebook)
-        self.notebook.add(self.settings_screen, text="   ⚙️ الإعدادات   ")
+        self.notebook.add(self.settings_screen, text=t("tab.settings", self.lang))
     
     def _create_statusbar(self):
         """Create status bar"""
         self.statusbar = StatusBar(self.root)
         self.statusbar.pack(fill='x', side='bottom')
-        self.statusbar.set_status("جاهز")
+        self.statusbar.set_status(t("common.ready", self.lang))
+
+    def _on_language_change(self):
+        """Handle language selection from menu"""
+        new_lang = self.lang_var.get() or LANG_AR
+        if new_lang == self.lang:
+            return
+        self.lang = new_lang
+        try:
+            self.db.update_company_settings(ui_language=self.lang)
+        except Exception as e:
+            print(f"Failed to persist language: {e}")
+        self.apply_language(self.lang)
+
+    def apply_language(self, lang: str):
+        """Apply language to all UI elements."""
+        set_current_lang(lang)
+        self.root.title(t("app.title", lang))
+
+        # Update menubar cascade labels
+        try:
+            self.menubar.entryconfigure(0, label=t("menu.file", lang))
+            self.menubar.entryconfigure(1, label=t("menu.view", lang))
+            self.menubar.entryconfigure(2, label=t("menu.language", lang))
+            self.menubar.entryconfigure(3, label=t("menu.help", lang))
+        except Exception:
+            pass
+
+        # Re-label menu items (order matters)
+        try:
+            self.file_menu.entryconfigure(0, label=t("menu.newInvoice", lang))
+            self.file_menu.entryconfigure(2, label=t("menu.backup", lang))
+            self.file_menu.entryconfigure(4, label=t("menu.exit", lang))
+        except Exception:
+            pass
+
+        try:
+            self.view_menu.entryconfigure(0, label=t("menu.home", lang))
+            self.view_menu.entryconfigure(1, label=t("menu.history", lang))
+            self.view_menu.entryconfigure(2, label=t("menu.settings", lang))
+        except Exception:
+            pass
+
+        try:
+            # language radiobutton labels
+            self.lang_menu.entryconfigure(0, label=t("menu.language.en", lang))
+            self.lang_menu.entryconfigure(1, label=t("menu.language.ar", lang))
+        except Exception:
+            pass
+
+        try:
+            self.help_menu.entryconfigure(0, label=t("menu.about", lang))
+        except Exception:
+            pass
+
+        # Toolbar
+        self.btn_home.configure(text=t("toolbar.home", lang))
+        self.btn_history.configure(text=t("toolbar.history", lang))
+        self.btn_settings.configure(text=t("toolbar.settings", lang))
+        self.btn_new_invoice.configure(text=t("toolbar.newInvoice", lang))
+
+        # Company name: switch between stored ar/en fields
+        settings = self.db.get_company_settings()
+        if (lang or LANG_AR) == LANG_EN and settings.get("company_name_en"):
+            self.company_label.configure(text=settings.get("company_name_en"))
+        else:
+            self.company_label.configure(text=settings.get("company_name_ar", "Invoice System"))
+
+        # Notebook tabs
+        try:
+            self.notebook.tab(0, text=t("tab.home", lang))
+            self.notebook.tab(1, text=t("tab.history", lang))
+            self.notebook.tab(2, text=t("tab.settings", lang))
+        except Exception:
+            pass
+
+        # Status bar
+        self.statusbar.set_status(t("common.ready", lang))
+        if hasattr(self.statusbar, "apply_language"):
+            self.statusbar.apply_language()
+
+        # Delegate to screens
+        if hasattr(self.invoice_form, "apply_language"):
+            self.invoice_form.apply_language(lang)
+        if hasattr(self.invoice_history, "apply_language"):
+            self.invoice_history.apply_language(lang)
+        if hasattr(self.settings_screen, "apply_language"):
+            self.settings_screen.apply_language(lang)
     
     def _center_window(self):
         """Center window on screen"""
@@ -173,12 +288,14 @@ class MainWindow:
     
     def _on_invoice_saved(self, invoice):
         """Handle invoice saved"""
-        self.statusbar.set_success(f"تم حفظ الفاتورة رقم {invoice['invoice_number']}")
+        msg = f"تم حفظ الفاتورة رقم {invoice['invoice_number']}" if self.lang != LANG_EN else f"Invoice {invoice['invoice_number']} saved"
+        self.statusbar.set_success(msg)
         self.invoice_history.refresh()
     
     def _on_invoice_save_print(self, invoice):
         """Handle save and print"""
-        self.statusbar.set_success(f"تم حفظ الفاتورة رقم {invoice['invoice_number']}")
+        msg = f"تم حفظ الفاتورة رقم {invoice['invoice_number']}" if self.lang != LANG_EN else f"Invoice {invoice['invoice_number']} saved"
+        self.statusbar.set_success(msg)
         self.invoice_history.refresh()
         self._on_view_invoice(invoice, print_mode=True)
     
@@ -199,18 +316,13 @@ class MainWindow:
     def _show_about(self):
         """Show about dialog"""
         messagebox.showinfo(
-            "حول البرنامج",
-            "نظام الفواتير\n"
-            "Invoice System\n\n"
-            "إصدار 1.0.0\n"
-            "Version 1.0.0\n\n"
-            "نظام لإدارة وطباعة الفواتير\n"
-            "مع دعم ضريبة القيمة المضافة"
+            t("about.title", self.lang),
+            t("about.body", self.lang),
         )
     
     def _on_close(self):
         """Handle window close"""
-        if messagebox.askyesno("تأكيد الخروج", "هل أنت متأكد من الخروج؟"):
+        if messagebox.askyesno(t("exit.title", self.lang), t("exit.body", self.lang)):
             self.db.close()
             self.root.destroy()
     

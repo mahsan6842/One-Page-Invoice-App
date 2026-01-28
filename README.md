@@ -1,185 +1,139 @@
-# نظام الفواتير - Invoice System
+# Invoice System (Offline)
 
-نظام إدارة فواتير بسيط ومحمول للعمل بدون إنترنت، متوافق مع متطلبات هيئة الزكاة والضريبة والجمارك السعودية.
+A lightweight, portable invoice management system that works **offline**. It includes **VAT support** and **ZATCA-compliant QR** generation for Saudi Arabia.
 
-A simple, portable invoice management system that works offline, compatible with Saudi ZATCA requirements.
+## ✨ Features
 
-## ✨ المميزات - Features
+- Create invoices (Arabic + English UI)
+- Automatic VAT calculation (default 15% via settings)
+- ZATCA QR code generation
+- Professional PDF export/printing
+- Invoice history with search and date filtering
+- Export history:
+  - CSV (Excel-friendly)
+  - Batch PDF export (one PDF per invoice)
+- Database backups and restore
+- Works fully offline (SQLite)
 
-- ✅ إنشاء فواتير بالعربية والإنجليزية
-- ✅ حساب ضريبة القيمة المضافة 15% تلقائياً
-- ✅ رمز QR متوافق مع هيئة الزكاة والضريبة
-- ✅ طباعة PDF بتنسيق احترافي
-- ✅ سجل كامل للفواتير مع بحث
-- ✅ تصدير سجل الفواتير (CSV لبرنامج Excel + تصدير PDF متعدد)
-- ✅ نسخ احتياطي للبيانات
-- ✅ يعمل بدون إنترنت
+## 🌐 Language
 
-## 💻 متطلبات النظام - System Requirements
+Use the top menubar: **Language → English / Arabic**.
 
-| المكون | الحد الأدنى |
-|--------|-------------|
-| المعالج | Intel Core 2nd Gen أو ما يعادله |
-| الذاكرة | 2 GB RAM |
-| المساحة | 100 MB |
-| النظام | Windows 7/10/11 |
+The selected language switches instantly and is remembered next time you open the app.
 
-## 🚀 التثبيت - Installation
+## 💻 System Requirements
 
-### 1. تثبيت Python (إذا لم يكن مثبتاً)
+- Windows 7/10/11
+- Python 3.8+ (recommended)
+- ~100MB disk space
 
-حمّل Python من [python.org](https://www.python.org/downloads/)
+## 🚀 Installation
 
-✅ تأكد من تفعيل "Add Python to PATH" أثناء التثبيت
+### 1) Install Python
 
-**الحد الأدنى المقترح:** Python 3.8+
+Download Python from [python.org](https://www.python.org/downloads/) and enable **“Add Python to PATH”** during installation.
 
-### 2. إنشاء بيئة افتراضية (اختياري لكنه مُستحسن)
+### 2) (Recommended) Create a virtual environment
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\activate
 ```
 
-### 3. تثبيت المكتبات المطلوبة
-
-افتح موجه الأوامر (Command Prompt) وانتقل إلى مجلد البرنامج:
+### 3) Install dependencies
 
 ```powershell
 cd "path\to\InvoiceApp"
 pip install -r requirements.txt
 ```
 
-### 4. تشغيل البرنامج
+### 4) Run
 
 ```powershell
 python main.py
 ```
 
-## 📁 هيكل المشروع - Project Structure
+## 🧭 Usage
 
-```
-InvoiceApp/
-├── main.py                 # نقطة الدخول الرئيسية
-├── requirements.txt        # المكتبات المطلوبة
-├── plan.md                # خطة المشروع التفصيلية
-├── README.md              # هذا الملف
-│
-├── app/                   # منطق التطبيق
-│   ├── database.py        # قاعدة البيانات SQLite
-│   ├── exporter.py        # تصدير سجل الفواتير (CSV/PDF)
-│   ├── invoice_logic.py   # حسابات الفواتير
-│   ├── pdf_generator.py   # إنشاء ملفات PDF
-│   └── qr_generator.py    # إنشاء رموز QR
-│
-├── ui/                    # واجهة المستخدم
-│   ├── export_dialog.py   # نافذة التقدم أثناء التصدير
-│   ├── main_window.py     # النافذة الرئيسية
-│   ├── invoice_form.py    # نموذج الفاتورة
-│   ├── invoice_history.py # سجل الفواتير
-│   ├── invoice_view.py    # عرض وطباعة الفاتورة
-│   ├── settings.py        # الإعدادات
-│   └── widgets.py         # عناصر واجهة مخصصة
-│
-├── data/                  # قاعدة البيانات
-│   └── invoices.db        # ملف SQLite (يُنشأ تلقائياً عند التشغيل)
-│
-├── assets/                # الموارد (تُنشأ تلقائياً عند التشغيل)
-│   ├── fonts/             # الخطوط العربية
-│   └── images/            # الصور والشعارات
-│
-├── output/                # ملفات PDF المُصدَّرة
-└── backups/               # النسخ الاحتياطية
-```
+### Create a new invoice
 
-## 🔧 استخدام البرنامج - Usage
+- Open the app (Home tab)
+- Enter customer info (optional)
+- Add items, qty, and price
+- Click **Save** or **Save & Print**
 
-### إنشاء فاتورة جديدة
+### View invoice history
 
-1. افتح البرنامج
-2. أدخل بيانات العميل (اختياري)
-3. أضف الأصناف بالضغط على "إضافة صنف"
-4. أدخل الكمية والسعر لكل صنف
-5. اضغط "حفظ" أو "حفظ وطباعة"
+- Go to **History**
+- Search by invoice number or customer
+- Use date filters
+- Double-click an invoice to open it
 
-### عرض الفواتير السابقة
+### Export history (CSV / PDF)
 
-1. انتقل إلى تبويب "سجل الفواتير"
-2. استخدم البحث للعثور على فاتورة
-3. انقر نقراً مزدوجاً لعرض الفاتورة
+- Go to **History**
+- Select invoices
+- Export:
+  - **CSV**: one file (Excel-friendly; English headers when UI is English)
+  - **PDF**: one PDF per invoice to a selected folder
 
-### تصدير سجل الفواتير (CSV / PDF)
+### Company settings
 
-1. انتقل إلى تبويب "سجل الفواتير"
-2. اختر الفواتير المطلوبة
-3. اختر نوع التصدير:
-   - **CSV**: ملف واحد مناسب للفتح في Excel (يدعم العربية)
-   - **PDF**: إنشاء ملف PDF لكل فاتورة داخل مجلد تختاره
+- Go to **Settings**
+- Update company info, VAT rate, invoice numbering, and terms
+- Save settings
 
-### تعديل إعدادات المؤسسة
+## 🛡️ Backup & Restore
 
-1. انتقل إلى تبويب "الإعدادات"
-2. أدخل بيانات المؤسسة
-3. أدخل الشروط والأحكام
-4. اضغط "حفظ الإعدادات"
+- **Create backup**: Settings → Create backup
+- **Restore backup**: Settings → Restore backup
 
-## 🛡️ النسخ الاحتياطي - Backup
-
-### إنشاء نسخة احتياطية
-
-1. افتح الإعدادات
-2. اضغط "إنشاء نسخة احتياطية"
-3. اختر مكان الحفظ
-
-### استعادة نسخة احتياطية
-
-1. افتح الإعدادات
-2. اضغط "استعادة من نسخة"
-3. اختر ملف النسخة الاحتياطية
-
-## 📦 إنشاء ملف تنفيذي - Build Executable
-
-لإنشاء ملف `.exe` يمكن تشغيله بدون تثبيت Python:
+## 📦 Build a Windows `.exe` (PyInstaller)
 
 ```powershell
-# تثبيت PyInstaller
 pip install pyinstaller
-
-# إنشاء الملف التنفيذي
 pyinstaller --onefile --windowed --name="InvoiceApp" --icon=assets/icon.ico main.py
 ```
 
-سيتم إنشاء الملف في مجلد `dist/InvoiceApp.exe`
+Output: `dist/InvoiceApp.exe`
 
-> ملاحظة: إذا لم يكن لديك ملف أيقونة، احذف الخيار `--icon=assets/icon.ico`.
+If you don’t have an icon file, remove `--icon=assets/icon.ico`.
 
-## 🔤 دعم اللغة العربية - Arabic Support
+## 🔤 Arabic PDF font support
 
-للحصول على عرض أفضل للنص العربي في PDF، يُنصح بتحميل خط عربي:
+For best Arabic rendering in generated PDFs, place an Arabic `.ttf` font in `assets/fonts/` (e.g. **Amiri** or **Cairo**) and restart the app.
 
-1. حمّل خط [Amiri](https://fonts.google.com/specimen/Amiri) أو [Cairo](https://fonts.google.com/specimen/Cairo)
-2. ضع ملف `.ttf` في مجلد `assets/fonts/`
-3. أعد تشغيل البرنامج
+## 📁 Project Structure
 
-## ❓ الأسئلة الشائعة - FAQ
+```
+InvoiceApp/
+├── main.py
+├── requirements.txt
+├── README.md
+├── app/
+│   ├── database.py
+│   ├── exporter.py
+│   ├── invoice_logic.py
+│   ├── pdf_generator.py
+│   ├── qr_generator.py
+│   └── i18n.py
+├── ui/
+│   ├── main_window.py
+│   ├── invoice_form.py
+│   ├── invoice_history.py
+│   ├── invoice_view.py
+│   ├── settings.py
+│   ├── export_dialog.py
+│   └── widgets.py
+├── data/       # invoices.db is created automatically
+├── output/     # generated PDFs
+└── backups/    # backup files
+```
 
-**س: لا تظهر النصوص العربية بشكل صحيح في PDF**
-ج: تأكد من تثبيت خط عربي في مجلد `assets/fonts/`
+## License
 
-**س: كيف أغير نسبة الضريبة؟**
-ج: من الإعدادات > إعدادات الفاتورة > نسبة الضريبة
-
-**س: أين يتم حفظ الفواتير؟**
-ج: في ملف `data/invoices.db`
-
-**س: كيف أنقل البرنامج لجهاز آخر؟**
-ج: انسخ مجلد `InvoiceApp` بالكامل، أو استخدم الملف التنفيذي مع ملف قاعدة البيانات
-
-## 📄 الترخيص - License
-
-هذا المشروع متاح للاستخدام الشخصي والتجاري.
+This project is available for personal and commercial use.
 
 ---
 
-**تم التطوير بواسطة - Developed by:** Contributors  
-**التاريخ - Date:** January 2026
+Developed by: Contributors  \nDate: January 2026
