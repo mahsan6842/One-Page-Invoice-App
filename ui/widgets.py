@@ -7,23 +7,26 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Callable, List, Optional, Any
 
+from app.i18n import get_current_lang, is_rtl, LANG_AR
+
 
 class ArabicEntry(ttk.Entry):
     """Entry widget with RTL support for Arabic text"""
     
     def __init__(self, parent, **kwargs):
         super().__init__(parent, **kwargs)
-        # Configure for RTL
-        self.configure(justify='right')
+        lang = get_current_lang() or LANG_AR
+        self.configure(justify='right' if is_rtl(lang) else 'left')
 
 
 class ArabicLabel(ttk.Label):
     """Label with RTL support"""
     
     def __init__(self, parent, **kwargs):
-        # Default to right anchor for Arabic
+        # Default anchor based on current app language direction
         if 'anchor' not in kwargs:
-            kwargs['anchor'] = 'e'
+            lang = get_current_lang() or LANG_AR
+            kwargs['anchor'] = 'e' if is_rtl(lang) else 'w'
         super().__init__(parent, **kwargs)
 
 
@@ -39,7 +42,8 @@ class NumberEntry(ttk.Entry):
         
         # Register validation
         vcmd = (self.register(self._validate), '%P')
-        self.configure(validate='key', validatecommand=vcmd, justify='right')
+        lang = get_current_lang() or LANG_AR
+        self.configure(validate='key', validatecommand=vcmd, justify='right' if is_rtl(lang) else 'left')
     
     def _validate(self, value: str) -> bool:
         if value == '' or value == '-':
@@ -317,8 +321,9 @@ class StatusBar(ttk.Frame):
     
     def __init__(self, parent, **kwargs):
         super().__init__(parent, **kwargs)
-        
-        self.label = ttk.Label(self, text='جاهز', anchor='e')
+
+        lang = get_current_lang() or LANG_AR
+        self.label = ttk.Label(self, text='جاهز', anchor='e' if is_rtl(lang) else 'w')
         self.label.pack(fill='x', padx=5, pady=2)
     
     def set_status(self, text: str):
@@ -329,6 +334,11 @@ class StatusBar(ttk.Frame):
     
     def set_error(self, text: str):
         self.label.configure(text=f"✗ {text}")
+
+    def apply_language(self):
+        """Update alignment based on current language direction."""
+        lang = get_current_lang() or LANG_AR
+        self.label.configure(anchor='e' if is_rtl(lang) else 'w')
 
 
 class ToolButton(ttk.Button):

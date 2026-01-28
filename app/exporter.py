@@ -11,6 +11,7 @@ from io import StringIO
 
 from app.pdf_generator import generate_invoice_pdf, PDF_AVAILABLE
 from app.database import get_database
+from app.i18n import LANG_EN
 
 
 class InvoiceExporter:
@@ -34,6 +35,21 @@ class InvoiceExporter:
         ('net_total', 'الصافي'),
         ('status', 'الحالة'),
     ]
+
+    CSV_COLUMNS_EN = [
+        ('invoice_number', 'Invoice No'),
+        ('invoice_date', 'Date'),
+        ('invoice_time', 'Time'),
+        ('customer_name', 'Customer'),
+        ('customer_tax_number', 'Customer Tax No'),
+        ('payment_type', 'Payment Type'),
+        ('subtotal', 'Subtotal'),
+        ('discount_amount', 'Discount'),
+        ('taxable_amount', 'Taxable Amount'),
+        ('tax_amount', 'Tax Amount'),
+        ('net_total', 'Total (incl. VAT)'),
+        ('status', 'Status'),
+    ]
     
     def __init__(self):
         self.db = get_database()
@@ -54,7 +70,8 @@ class InvoiceExporter:
         invoice_ids: List[int],
         output_path: str,
         progress_callback: Callable[[int, int, str], None] = None,
-        include_arabic_headers: bool = True
+        include_arabic_headers: bool = True,
+        lang: str = None,
     ) -> Tuple[bool, str]:
         """
         Export selected invoices to a single CSV file.
@@ -69,45 +86,53 @@ class InvoiceExporter:
             Tuple of (success: bool, message: str)
         """
         self.reset()
+        en = (lang == LANG_EN)
         
         if not invoice_ids:
-            return False, "لم يتم تحديد أي فواتير للتصدير"
+            return False, ("No invoices selected for export." if en else "لم يتم تحديد أي فواتير للتصدير")
         
         try:
             # Fetch all invoices
             invoices = []
             total = len(invoice_ids)
+
+            # If English UI, default to English headers unless explicitly overridden
+            if en:
+                include_arabic_headers = False
             
             for i, inv_id in enumerate(invoice_ids):
                 if self._cancelled:
-                    return False, "تم إلغاء التصدير"
+                    return False, ("Export cancelled." if en else "تم إلغاء التصدير")
                 
                 invoice = self.db.get_invoice(inv_id)
                 if invoice:
                     invoices.append(invoice)
                 
                 if progress_callback:
-                    progress_callback(i + 1, total, f"جاري تحميل الفاتورة {i + 1} من {total}")
+                    if en:
+                        progress_callback(i + 1, total, f"Loading invoice {i + 1} of {total}")
+                    else:
+                        progress_callback(i + 1, total, f"جاري تحميل الفاتورة {i + 1} من {total}")
             
             if not invoices:
-                return False, "لم يتم العثور على فواتير للتصدير"
+                return False, ("No invoices found to export." if en else "لم يتم العثور على فواتير للتصدير")
             
             # Write CSV file
             if progress_callback:
-                progress_callback(total, total, "جاري كتابة ملف CSV...")
+                progress_callback(total, total, "Writing CSV..." if en else "جاري كتابة ملف CSV...")
             
             self._write_csv(invoices, output_path, include_arabic_headers)
             
-            return True, f"تم تصدير {len(invoices)} فاتورة بنجاح"
+            return True, (f"Exported {len(invoices)} invoice(s) successfully." if en else f"تم تصدير {len(invoices)} فاتورة بنجاح")
             
         except PermissionError:
-            return False, "لا يمكن الكتابة في هذا الموقع. يرجى اختيار موقع آخر"
+            return False, ("Cannot write to this location. Please choose another." if en else "لا يمكن الكتابة في هذا الموقع. يرجى اختيار موقع آخر")
         except OSError as e:
             if "No space" in str(e) or "disk" in str(e).lower():
-                return False, "المساحة غير كافية على القرص"
-            return False, f"خطأ في الملف: {str(e)}"
+                return False, ("Not enough disk space." if en else "المساحة غير كافية على القرص")
+            return False, (f"File error: {str(e)}" if en else f"خطأ في الملف: {str(e)}")
         except Exception as e:
-            return False, f"حدث خطأ أثناء التصدير: {str(e)}"
+            return False, (f"Export error: {str(e)}" if en else f"حدث خطأ أثناء التصدير: {str(e)}")
     
     def _write_csv(self, invoices: List[Dict], output_path: str, 
                    include_arabic_headers: bool):
@@ -121,7 +146,7 @@ class InvoiceExporter:
             if include_arabic_headers:
                 headers = [col[1] for col in self.CSV_COLUMNS]  # Arabic names
             else:
-                headers = [col[0] for col in self.CSV_COLUMNS]  # English names
+                headers = [col[1] for col in self.CSV_COLUMNS_EN]  # English labels
             
             writer.writerow(headers)
             
@@ -136,7 +161,11 @@ class InvoiceExporter:
                                    'tax_amount', 'net_total'):
                         value = f"{float(value or 0):.2f}"
                     elif col_key == 'status':
-                        value = 'نشطة' if value == 'active' else 'ملغاة'
+                        # keep Arabic status for Arabic headers; otherwise English
+                        if include_arabic_headers:
+                            value = 'نشطة' if value == 'active' else 'ملغاة'
+                        else:
+                            value = 'Active' if value == 'active' else 'Cancelled'
                     elif value is None:
                         value = ''
                     
@@ -184,7 +213,8 @@ class InvoiceExporter:
         invoice_ids: List[int],
         output_folder: str,
         progress_callback: Callable[[int, int, str], None] = None,
-        filename_pattern: str = "Invoice_{number}.pdf"
+        filename_pattern: str = "Invoice_{number}.pdf",
+        lang: str = None,
     ) -> Tuple[int, int, List[str]]:
         """
         Export selected invoices to individual PDF files.
@@ -199,20 +229,21 @@ class InvoiceExporter:
             Tuple of (success_count, total_count, list of error messages)
         """
         self.reset()
+        en = (lang == LANG_EN)
         
         if not invoice_ids:
-            return 0, 0, ["لم يتم تحديد أي فواتير للتصدير"]
+            return 0, 0, ["No invoices selected for export." if en else "لم يتم تحديد أي فواتير للتصدير"]
         
         if not PDF_AVAILABLE:
-            return 0, len(invoice_ids), ["مكتبة PDF غير متوفرة. يرجى تثبيت reportlab"]
+            return 0, len(invoice_ids), ["PDF library not available. Please install reportlab." if en else "مكتبة PDF غير متوفرة. يرجى تثبيت reportlab"]
         
         # Ensure output folder exists
         try:
             os.makedirs(output_folder, exist_ok=True)
         except PermissionError:
-            return 0, len(invoice_ids), ["لا يمكن إنشاء المجلد. تحقق من الصلاحيات"]
+            return 0, len(invoice_ids), ["Cannot create folder. Check permissions." if en else "لا يمكن إنشاء المجلد. تحقق من الصلاحيات"]
         except Exception as e:
-            return 0, len(invoice_ids), [f"خطأ في إنشاء المجلد: {str(e)}"]
+            return 0, len(invoice_ids), [f"Folder creation error: {str(e)}" if en else f"خطأ في إنشاء المجلد: {str(e)}"]
         
         # Get company settings once
         company_settings = self.db.get_company_settings()
@@ -223,14 +254,14 @@ class InvoiceExporter:
         
         for i, inv_id in enumerate(invoice_ids):
             if self._cancelled:
-                errors.append("تم إلغاء التصدير")
+                errors.append("Export cancelled." if en else "تم إلغاء التصدير")
                 break
             
             try:
                 # Fetch invoice
                 invoice = self.db.get_invoice(inv_id)
                 if not invoice:
-                    errors.append(f"الفاتورة {inv_id} غير موجودة")
+                    errors.append(f"Invoice {inv_id} not found" if en else f"الفاتورة {inv_id} غير موجودة")
                     continue
                 
                 # Generate filename
@@ -240,7 +271,7 @@ class InvoiceExporter:
                 
                 # Update progress
                 if progress_callback:
-                    progress_callback(i + 1, total, f"جاري إنشاء {filename}")
+                    progress_callback(i + 1, total, f"Generating {filename}" if en else f"جاري إنشاء {filename}")
                 
                 # Generate PDF
                 generate_invoice_pdf(invoice, company_settings, filepath)
@@ -248,9 +279,9 @@ class InvoiceExporter:
                 success_count += 1
                 
             except PermissionError:
-                errors.append(f"لا يمكن كتابة الفاتورة {invoice_number}")
+                errors.append(f"Cannot write invoice {invoice_number}" if en else f"لا يمكن كتابة الفاتورة {invoice_number}")
             except Exception as e:
-                errors.append(f"خطأ في الفاتورة {invoice_number}: {str(e)}")
+                errors.append(f"Invoice {invoice_number} error: {str(e)}" if en else f"خطأ في الفاتورة {invoice_number}: {str(e)}")
         
         return success_count, total, errors
     

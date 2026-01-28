@@ -26,6 +26,7 @@ class Database:
         self.conn = None
         self.connect()
         self.create_tables()
+        self._migrate_schema()
         self.initialize_default_settings()
     
     def connect(self):
@@ -153,6 +154,24 @@ class Database:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name_ar)")
         
         self.conn.commit()
+
+    def _migrate_schema(self):
+        """
+        Lightweight schema migrations for existing databases.
+        Keep this backward compatible and safe to run at every startup.
+        """
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute("PRAGMA table_info(company_settings)")
+            cols = {row[1] for row in cursor.fetchall()}  # row[1] = name
+
+            if "ui_language" not in cols:
+                cursor.execute("ALTER TABLE company_settings ADD COLUMN ui_language TEXT DEFAULT 'ar'")
+
+            self.conn.commit()
+        except Exception as e:
+            # Don't hard-fail startup on migration issues
+            print(f"Schema migration warning: {e}")
     
     def initialize_default_settings(self):
         """Initialize default company settings if not exists"""
@@ -173,15 +192,16 @@ class Database:
             
             cursor.execute("""
                 INSERT INTO company_settings 
-                (company_name_ar, address_ar, tax_number, phone1, phone2, terms_conditions)
-                VALUES (?, ?, ?, ?, ?, ?)
+                (company_name_ar, address_ar, tax_number, phone1, phone2, terms_conditions, ui_language)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
             """, (
                 "مؤسسة التفرد الاصيل للمطابخ",
                 "بريدة - طريق الملك فيصل - حي العجيبة",
                 "300694858900003",
                 "0591650315",
                 "0580911269",
-                default_terms
+                default_terms,
+                "ar",
             ))
             self.conn.commit()
     
