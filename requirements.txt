@@ -1,0 +1,8 @@
+# Invoice Application Dependencies
+# Install with: pip install -r requirements.txt
+
+reportlab>=4.0.0          # PDF generation
+arabic-reshaper>=3.0.0    # Arabic text reshaping
+python-bidi>=0.4.2        # RTL text support
+qrcode>=7.4.0             # QR code generation
+Pillow>=10.0.0            # Image processing
