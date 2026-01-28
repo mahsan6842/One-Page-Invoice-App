@@ -9,6 +9,7 @@ import json
 from typing import Dict, Any
 
 from app.database import get_database
+from app.i18n import LANG_AR, LANG_EN, t
 from ui.widgets import ArabicEntry, ArabicLabel, NumberEntry, FormSection
 
 
@@ -19,6 +20,7 @@ class SettingsScreen(ttk.Frame):
         super().__init__(parent, **kwargs)
         
         self.db = get_database()
+        self.lang = LANG_AR
         
         self._create_widgets()
         self._load_settings()
@@ -42,112 +44,125 @@ class SettingsScreen(ttk.Frame):
         canvas.pack(side='right', fill='both', expand=True)
         
         # === Company Info Section ===
-        company_frame = FormSection(scrollable_frame, "بيانات المؤسسة")
-        company_frame.pack(fill='x', padx=10, pady=10)
+        self.company_frame = FormSection(scrollable_frame, "بيانات المؤسسة")
+        self.company_frame.pack(fill='x', padx=10, pady=10)
         
         # Company name
-        row = ttk.Frame(company_frame)
+        row = ttk.Frame(self.company_frame)
         row.pack(fill='x', pady=3)
-        ttk.Label(row, text="اسم المؤسسة:", width=15, anchor='e').pack(side='right', padx=5)
+        self.lbl_company_name = ttk.Label(row, text="اسم المؤسسة:", width=15, anchor='e')
+        self.lbl_company_name.pack(side='right', padx=5)
         self.company_name = ArabicEntry(row, width=40)
         self.company_name.pack(side='right', padx=5, fill='x', expand=True)
         
         # Address
-        row = ttk.Frame(company_frame)
+        row = ttk.Frame(self.company_frame)
         row.pack(fill='x', pady=3)
-        ttk.Label(row, text="العنوان:", width=15, anchor='e').pack(side='right', padx=5)
+        self.lbl_address = ttk.Label(row, text="العنوان:", width=15, anchor='e')
+        self.lbl_address.pack(side='right', padx=5)
         self.address = ArabicEntry(row, width=40)
         self.address.pack(side='right', padx=5, fill='x', expand=True)
         
         # Tax number
-        row = ttk.Frame(company_frame)
+        row = ttk.Frame(self.company_frame)
         row.pack(fill='x', pady=3)
-        ttk.Label(row, text="الرقم الضريبي:", width=15, anchor='e').pack(side='right', padx=5)
+        self.lbl_tax_number = ttk.Label(row, text="الرقم الضريبي:", width=15, anchor='e')
+        self.lbl_tax_number.pack(side='right', padx=5)
         self.tax_number = ArabicEntry(row, width=40)
         self.tax_number.pack(side='right', padx=5, fill='x', expand=True)
         
         # Phone 1
-        row = ttk.Frame(company_frame)
+        row = ttk.Frame(self.company_frame)
         row.pack(fill='x', pady=3)
-        ttk.Label(row, text="الهاتف 1:", width=15, anchor='e').pack(side='right', padx=5)
+        self.lbl_phone1 = ttk.Label(row, text="الهاتف 1:", width=15, anchor='e')
+        self.lbl_phone1.pack(side='right', padx=5)
         self.phone1 = ArabicEntry(row, width=20)
         self.phone1.pack(side='right', padx=5)
         
         # Phone 2
-        row = ttk.Frame(company_frame)
+        row = ttk.Frame(self.company_frame)
         row.pack(fill='x', pady=3)
-        ttk.Label(row, text="الهاتف 2:", width=15, anchor='e').pack(side='right', padx=5)
+        self.lbl_phone2 = ttk.Label(row, text="الهاتف 2:", width=15, anchor='e')
+        self.lbl_phone2.pack(side='right', padx=5)
         self.phone2 = ArabicEntry(row, width=20)
         self.phone2.pack(side='right', padx=5)
         
         # Logo
-        row = ttk.Frame(company_frame)
+        row = ttk.Frame(self.company_frame)
         row.pack(fill='x', pady=3)
-        ttk.Label(row, text="الشعار:", width=15, anchor='e').pack(side='right', padx=5)
+        self.lbl_logo = ttk.Label(row, text="الشعار:", width=15, anchor='e')
+        self.lbl_logo.pack(side='right', padx=5)
         self.logo_path = ArabicEntry(row, width=30)
         self.logo_path.pack(side='right', padx=5)
-        ttk.Button(row, text="اختيار...", command=self._browse_logo,
-                  width=10).pack(side='right', padx=5)
+        self.btn_browse_logo = ttk.Button(row, text="اختيار...", command=self._browse_logo, width=10)
+        self.btn_browse_logo.pack(side='right', padx=5)
         
         # === Invoice Settings Section ===
-        invoice_frame = FormSection(scrollable_frame, "إعدادات الفاتورة")
-        invoice_frame.pack(fill='x', padx=10, pady=10)
+        self.invoice_frame = FormSection(scrollable_frame, "إعدادات الفاتورة")
+        self.invoice_frame.pack(fill='x', padx=10, pady=10)
         
         # VAT rate
-        row = ttk.Frame(invoice_frame)
+        row = ttk.Frame(self.invoice_frame)
         row.pack(fill='x', pady=3)
-        ttk.Label(row, text="نسبة الضريبة (%):", width=15, anchor='e').pack(side='right', padx=5)
+        self.lbl_vat_rate = ttk.Label(row, text="نسبة الضريبة (%):", width=15, anchor='e')
+        self.lbl_vat_rate.pack(side='right', padx=5)
         self.vat_rate = NumberEntry(row, width=10)
         self.vat_rate.pack(side='right', padx=5)
         
         # Invoice prefix
-        row = ttk.Frame(invoice_frame)
+        row = ttk.Frame(self.invoice_frame)
         row.pack(fill='x', pady=3)
-        ttk.Label(row, text="بادئة رقم الفاتورة:", width=15, anchor='e').pack(side='right', padx=5)
+        self.lbl_invoice_prefix = ttk.Label(row, text="بادئة رقم الفاتورة:", width=15, anchor='e')
+        self.lbl_invoice_prefix.pack(side='right', padx=5)
         self.invoice_prefix = ArabicEntry(row, width=10)
         self.invoice_prefix.pack(side='right', padx=5)
         
         # Next invoice number
-        row = ttk.Frame(invoice_frame)
+        row = ttk.Frame(self.invoice_frame)
         row.pack(fill='x', pady=3)
-        ttk.Label(row, text="الرقم التالي:", width=15, anchor='e').pack(side='right', padx=5)
+        self.lbl_next_number = ttk.Label(row, text="الرقم التالي:", width=15, anchor='e')
+        self.lbl_next_number.pack(side='right', padx=5)
         self.next_number = NumberEntry(row, width=10, allow_decimal=False)
         self.next_number.pack(side='right', padx=5)
         
         # === Terms and Conditions Section ===
-        terms_frame = FormSection(scrollable_frame, "الشروط والأحكام")
-        terms_frame.pack(fill='x', padx=10, pady=10)
+        self.terms_frame = FormSection(scrollable_frame, "الشروط والأحكام")
+        self.terms_frame.pack(fill='x', padx=10, pady=10)
         
-        self.terms_text = tk.Text(terms_frame, height=10, width=60, 
+        self.terms_text = tk.Text(self.terms_frame, height=10, width=60,
                                   wrap='word', font=('Arial', 10))
         self.terms_text.pack(fill='x', padx=5, pady=5)
         
-        ttk.Label(terms_frame, text="(أدخل كل شرط في سطر منفصل)",
-                 font=('Arial', 8)).pack(anchor='e', padx=5)
+        self.lbl_terms_hint = ttk.Label(self.terms_frame, text="(أدخل كل شرط في سطر منفصل)", font=('Arial', 8))
+        self.lbl_terms_hint.pack(anchor='e', padx=5)
         
         # === Backup Section ===
-        backup_frame = FormSection(scrollable_frame, "النسخ الاحتياطي")
-        backup_frame.pack(fill='x', padx=10, pady=10)
+        self.backup_frame = FormSection(scrollable_frame, "النسخ الاحتياطي")
+        self.backup_frame.pack(fill='x', padx=10, pady=10)
         
-        btn_row = ttk.Frame(backup_frame)
+        btn_row = ttk.Frame(self.backup_frame)
         btn_row.pack(fill='x', pady=5)
         
-        ttk.Button(btn_row, text="💾 إنشاء نسخة احتياطية", 
-                  command=self._create_backup, width=20).pack(side='right', padx=5)
-        ttk.Button(btn_row, text="📂 استعادة من نسخة", 
-                  command=self._restore_backup, width=20).pack(side='right', padx=5)
+        self.btn_create_backup = ttk.Button(btn_row, text="💾 إنشاء نسخة احتياطية",
+                                            command=self._create_backup, width=20)
+        self.btn_create_backup.pack(side='right', padx=5)
+        self.btn_restore_backup = ttk.Button(btn_row, text="📂 استعادة من نسخة",
+                                             command=self._restore_backup, width=20)
+        self.btn_restore_backup.pack(side='right', padx=5)
         
-        self.backup_label = ttk.Label(backup_frame, text="")
+        self.backup_label = ttk.Label(self.backup_frame, text="")
         self.backup_label.pack(anchor='e', pady=5)
         
         # === Action Buttons ===
         btn_frame = ttk.Frame(scrollable_frame)
         btn_frame.pack(fill='x', padx=10, pady=20)
         
-        ttk.Button(btn_frame, text="💾 حفظ الإعدادات", 
-                  command=self._save_settings, width=15).pack(side='right', padx=5)
-        ttk.Button(btn_frame, text="🔄 إعادة تحميل", 
-                  command=self._load_settings, width=15).pack(side='right', padx=5)
+        self.btn_save = ttk.Button(btn_frame, text="💾 حفظ الإعدادات",
+                                   command=self._save_settings, width=15)
+        self.btn_save.pack(side='right', padx=5)
+        self.btn_reload = ttk.Button(btn_frame, text="🔄 إعادة تحميل",
+                                     command=self._load_settings, width=15)
+        self.btn_reload.pack(side='right', padx=5)
     
     def _load_settings(self):
         """Load settings from database"""
@@ -203,10 +218,12 @@ class SettingsScreen(ttk.Frame):
                 terms_conditions=terms_list
             )
             
-            messagebox.showinfo("نجاح", "تم حفظ الإعدادات بنجاح")
+            messagebox.showinfo(t("common.success", self.lang),
+                                "تم حفظ الإعدادات بنجاح" if self.lang != LANG_EN else "Settings saved successfully.")
             
         except Exception as e:
-            messagebox.showerror("خطأ", f"فشل حفظ الإعدادات: {str(e)}")
+            msg = f"فشل حفظ الإعدادات: {str(e)}" if self.lang != LANG_EN else f"Failed to save settings: {str(e)}"
+            messagebox.showerror(t("common.error", self.lang), msg)
     
     def _browse_logo(self):
         """Browse for logo image"""
@@ -230,10 +247,14 @@ class SettingsScreen(ttk.Frame):
         if filepath:
             if self.db.backup(filepath):
                 self.backup_label.configure(text=f"✓ تم إنشاء النسخة الاحتياطية")
-                messagebox.showinfo("نجاح", f"تم إنشاء النسخة الاحتياطية:\n{filepath}")
+                if self.lang != LANG_EN:
+                    messagebox.showinfo(t("common.success", self.lang), f"تم إنشاء النسخة الاحتياطية:\n{filepath}")
+                else:
+                    messagebox.showinfo(t("common.success", self.lang), f"Backup created:\n{filepath}")
             else:
                 self.backup_label.configure(text="✗ فشل إنشاء النسخة")
-                messagebox.showerror("خطأ", "فشل إنشاء النسخة الاحتياطية")
+                messagebox.showerror(t("common.error", self.lang),
+                                     "فشل إنشاء النسخة الاحتياطية" if self.lang != LANG_EN else "Backup failed.")
     
     def _restore_backup(self):
         """Restore from backup"""
@@ -242,9 +263,11 @@ class SettingsScreen(ttk.Frame):
         )
         
         if filepath:
-            if messagebox.askyesno("تأكيد", 
-                "سيتم استبدال قاعدة البيانات الحالية.\n"
-                "هل أنت متأكد من المتابعة؟"):
+            if self.lang != LANG_EN:
+                confirm_msg = "سيتم استبدال قاعدة البيانات الحالية.\nهل أنت متأكد من المتابعة؟"
+            else:
+                confirm_msg = "This will replace the current database.\nDo you want to continue?"
+            if messagebox.askyesno(t("common.confirm", self.lang), confirm_msg):
                 try:
                     import shutil
                     # Close current connection
@@ -256,10 +279,40 @@ class SettingsScreen(ttk.Frame):
                     self._load_settings()
                     
                     self.backup_label.configure(text="✓ تم استعادة النسخة الاحتياطية")
-                    messagebox.showinfo("نجاح", "تم استعادة النسخة الاحتياطية بنجاح")
+                    messagebox.showinfo(t("common.success", self.lang),
+                                        "تم استعادة النسخة الاحتياطية بنجاح" if self.lang != LANG_EN else "Backup restored successfully.")
                 except Exception as e:
                     self.backup_label.configure(text="✗ فشل الاستعادة")
-                    messagebox.showerror("خطأ", f"فشلت الاستعادة: {str(e)}")
+                    msg = f"فشلت الاستعادة: {str(e)}" if self.lang != LANG_EN else f"Restore failed: {str(e)}"
+                    messagebox.showerror(t("common.error", self.lang), msg)
+
+    def apply_language(self, lang: str):
+        """Apply language to Settings UI."""
+        self.lang = lang or LANG_AR
+
+        self.company_frame.configure(text="بيانات المؤسسة" if self.lang != LANG_EN else "Company info")
+        self.lbl_company_name.configure(text="اسم المؤسسة:" if self.lang != LANG_EN else "Company name:")
+        self.lbl_address.configure(text="العنوان:" if self.lang != LANG_EN else "Address:")
+        self.lbl_tax_number.configure(text="الرقم الضريبي:" if self.lang != LANG_EN else "VAT / Tax number:")
+        self.lbl_phone1.configure(text="الهاتف 1:" if self.lang != LANG_EN else "Phone 1:")
+        self.lbl_phone2.configure(text="الهاتف 2:" if self.lang != LANG_EN else "Phone 2:")
+        self.lbl_logo.configure(text="الشعار:" if self.lang != LANG_EN else "Logo:")
+        self.btn_browse_logo.configure(text="اختيار..." if self.lang != LANG_EN else "Browse...")
+
+        self.invoice_frame.configure(text="إعدادات الفاتورة" if self.lang != LANG_EN else "Invoice settings")
+        self.lbl_vat_rate.configure(text="نسبة الضريبة (%):" if self.lang != LANG_EN else "VAT rate (%):")
+        self.lbl_invoice_prefix.configure(text="بادئة رقم الفاتورة:" if self.lang != LANG_EN else "Invoice prefix:")
+        self.lbl_next_number.configure(text="الرقم التالي:" if self.lang != LANG_EN else "Next number:")
+
+        self.terms_frame.configure(text="الشروط والأحكام" if self.lang != LANG_EN else "Terms & Conditions")
+        self.lbl_terms_hint.configure(text="(أدخل كل شرط في سطر منفصل)" if self.lang != LANG_EN else "(Enter one term per line)")
+
+        self.backup_frame.configure(text="النسخ الاحتياطي" if self.lang != LANG_EN else "Backup")
+        self.btn_create_backup.configure(text="💾 إنشاء نسخة احتياطية" if self.lang != LANG_EN else "💾 Create backup")
+        self.btn_restore_backup.configure(text="📂 استعادة من نسخة" if self.lang != LANG_EN else "📂 Restore backup")
+
+        self.btn_save.configure(text="💾 حفظ الإعدادات" if self.lang != LANG_EN else "💾 Save settings")
+        self.btn_reload.configure(text="🔄 إعادة تحميل" if self.lang != LANG_EN else "🔄 Reload")
     
     def _get_date_string(self) -> str:
         """Get current date as string"""

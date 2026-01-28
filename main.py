@@ -79,6 +79,15 @@ def show_dependency_error(missing: list):
 
 def main():
     """Main entry point"""
+    # Ensure console output can handle Arabic on Windows terminals
+    try:
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        if hasattr(sys.stderr, "reconfigure"):
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
     # Check dependencies
     missing = check_dependencies()
     
@@ -107,7 +116,7 @@ def main():
         from ui.main_window import MainWindow
         
         print("=" * 50)
-        print("  نظام الفواتير - Invoice System")
+        print("  Invoice System")
         print("  Version 1.0.0")
         print("=" * 50)
         print()
