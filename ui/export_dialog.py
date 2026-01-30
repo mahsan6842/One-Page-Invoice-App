@@ -10,7 +10,7 @@ import os
 from typing import List, Callable, Optional
 
 from app.exporter import get_exporter
-from app.i18n import LANG_EN, get_current_lang
+from app.i18n import LANG_EN, get_current_lang, t, pack_side, pack_side_opposite, anchor_for, justify_for
 
 
 class ExportProgressDialog(tk.Toplevel):
@@ -54,8 +54,8 @@ class ExportProgressDialog(tk.Toplevel):
     
     def _setup_window(self):
         """Configure window properties"""
-        title = ("Export CSV" if self.export_type == 'csv' else "Export PDF") if self.lang == LANG_EN else ("تصدير CSV" if self.export_type == 'csv' else "تصدير PDF")
-        self.title(title)
+        key = "export.titleCsv" if self.export_type == 'csv' else "export.titlePdf"
+        self.title(t(key, self.lang))
         self.geometry("400x200")
         self.resizable(False, False)
         
@@ -80,7 +80,7 @@ class ExportProgressDialog(tk.Toplevel):
         # Title label
         self.title_label = ttk.Label(
             main_frame, 
-            text="Exporting..." if self.lang == LANG_EN else "جاري التصدير...",
+            text=t("export.exporting", self.lang),
             font=('Arial', 12, 'bold')
         )
         self.title_label.pack(pady=(0, 15))
@@ -99,7 +99,7 @@ class ExportProgressDialog(tk.Toplevel):
         # Status label
         self.status_label = ttk.Label(
             main_frame,
-            text="Preparing..." if self.lang == LANG_EN else "جاري التحضير...",
+            text=t("export.preparing", self.lang),
             font=('Arial', 10)
         )
         self.status_label.pack(pady=5)
@@ -115,7 +115,7 @@ class ExportProgressDialog(tk.Toplevel):
         # Cancel button
         self.cancel_btn = ttk.Button(
             main_frame,
-            text="Cancel" if self.lang == LANG_EN else "إلغاء",
+            text=t("export.cancel", self.lang),
             command=self._on_cancel,
             width=15
         )
@@ -154,16 +154,17 @@ class ExportProgressDialog(tk.Toplevel):
                 self.result_count = success_count
                 self.result_errors = errors
                 
+                lang = get_current_lang()
                 if success_count == total:
-                    self.result_message = f"Exported {success_count} invoice(s) successfully." if self.lang == LANG_EN else f"تم تصدير {success_count} فاتورة بنجاح"
+                    self.result_message = t("export.successCount", lang, count=success_count)
                 elif success_count > 0:
-                    self.result_message = f"Exported {success_count} of {total} invoice(s)." if self.lang == LANG_EN else f"تم تصدير {success_count} من {total} فاتورة"
+                    self.result_message = t("export.partialCount", lang, success=success_count, total=total)
                 else:
-                    self.result_message = "Export failed." if self.lang == LANG_EN else "فشل التصدير"
+                    self.result_message = t("export.failed", lang)
                     
         except Exception as e:
             self.result_success = False
-            self.result_message = f"Error: {str(e)}" if self.lang == LANG_EN else f"حدث خطأ: {str(e)}"
+            self.result_message = t("export.errorDetail", get_current_lang(), error=str(e))
     
     def _update_progress(self, current: int, total: int, message: str):
         """
@@ -204,7 +205,7 @@ class ExportProgressDialog(tk.Toplevel):
         
         # Update progress to 100%
         self.progress_var.set(100)
-        self.status_label.configure(text="Done!" if self.lang == LANG_EN else "اكتمل!")
+        self.status_label.configure(text=t("export.done", get_current_lang()))
         
         # Close dialog after short delay
         self.after(500, self._show_result)
@@ -218,8 +219,7 @@ class ExportProgressDialog(tk.Toplevel):
             self._show_success_dialog()
         else:
             # Error dialog
-            title = "Export error" if self.lang == LANG_EN else "خطأ في التصدير"
-            messagebox.showerror(title, self.result_message)
+            messagebox.showerror(t("export.error", get_current_lang()), self.result_message)
         
         # Call completion callback
         if self.on_complete:
@@ -227,8 +227,9 @@ class ExportProgressDialog(tk.Toplevel):
     
     def _show_success_dialog(self):
         """Show success dialog with open folder option"""
+        lang = get_current_lang()
         dialog = tk.Toplevel(self.master)
-        dialog.title("Export complete" if self.lang == LANG_EN else "اكتمل التصدير")
+        dialog.title(t("export.complete", lang))
         dialog.geometry("350x180")
         dialog.resizable(False, False)
         dialog.transient(self.master)
@@ -256,29 +257,27 @@ class ExportProgressDialog(tk.Toplevel):
         
         # Show errors if any
         if self.result_errors:
-            error_text = f"({len(self.result_errors)} errors)" if self.lang == LANG_EN else f"({len(self.result_errors)} أخطاء)"
+            error_text = t("export.errorsCount", lang, count=len(self.result_errors))
             ttk.Label(frame, text=error_text, foreground='orange').pack()
         
-        # Buttons
         btn_frame = ttk.Frame(frame)
         btn_frame.pack(pady=15)
-        
+        ps = pack_side(lang)
         def open_folder():
             folder = self.output_path if self.export_type == 'pdf' else os.path.dirname(self.output_path)
             if os.path.exists(folder):
                 os.startfile(folder)
             dialog.destroy()
-        
-        ttk.Button(btn_frame, text="Open folder" if self.lang == LANG_EN else "فتح المجلد", command=open_folder,
-                  width=12).pack(side='right', padx=5)
-        ttk.Button(btn_frame, text="Close" if self.lang == LANG_EN else "إغلاق", command=dialog.destroy,
-                  width=12).pack(side='right', padx=5)
+        ttk.Button(btn_frame, text=t("export.openFolder", lang), command=open_folder,
+                  width=12).pack(side=ps, padx=5)
+        ttk.Button(btn_frame, text=t("export.close", lang), command=dialog.destroy,
+                  width=12).pack(side=ps, padx=5)
     
     def _on_cancel(self):
         """Handle cancel button or window close"""
         self.is_cancelled = True
         self.exporter.cancel()
-        self.status_label.configure(text="Cancelling..." if self.lang == LANG_EN else "جاري الإلغاء...")
+        self.status_label.configure(text=t("export.cancelling", get_current_lang()))
         self.cancel_btn.configure(state='disabled')
         
         # Wait briefly for thread to finish, then close
@@ -311,7 +310,7 @@ class ExportOptionsDialog(tk.Toplevel):
     
     def _setup_window(self):
         """Configure window"""
-        self.title("Export options" if self.lang == LANG_EN else "خيارات التصدير")
+        self.title(t("export.options", self.lang))
         self.geometry("400x300")
         self.resizable(False, False)
         self.transient(self.master)
@@ -327,48 +326,37 @@ class ExportOptionsDialog(tk.Toplevel):
         """Create dialog widgets"""
         frame = ttk.Frame(self, padding=20)
         frame.pack(fill='both', expand=True)
-        
-        # Header
-        header = f"Export {self.invoice_count} invoice(s)" if self.lang == LANG_EN else f"تصدير {self.invoice_count} فاتورة"
-        ttk.Label(frame, text=header, font=('Arial', 12, 'bold')).pack(anchor='e', pady=(0, 15))
-        
-        # Export type selection
-        type_frame = ttk.LabelFrame(frame, text="Export type" if self.lang == LANG_EN else "نوع التصدير", padding=10)
+        ps, pso = pack_side(self.lang), pack_side_opposite(self.lang)
+        anch = anchor_for(self.lang)
+        jf = justify_for(self.lang)
+        header = t("export.headerCount", self.lang, count=self.invoice_count)
+        ttk.Label(frame, text=header, font=('Arial', 12, 'bold')).pack(anchor=anch, pady=(0, 15))
+        type_frame = ttk.LabelFrame(frame, text=t("export.type", self.lang), padding=10)
         type_frame.pack(fill='x', pady=10)
-        
         self.export_type = tk.StringVar(value='csv')
-        
         csv_frame = ttk.Frame(type_frame)
         csv_frame.pack(fill='x', pady=5)
         ttk.Radiobutton(csv_frame, text="CSV / Excel", variable=self.export_type,
-                       value='csv', command=self._on_type_change).pack(side='right')
+                       value='csv', command=self._on_type_change).pack(side=ps)
         csv_time = self.exporter.estimate_export_time(self.invoice_count, 'csv')
-        csv_hint = f"(single file - {csv_time})" if self.lang == LANG_EN else f"(ملف واحد - {csv_time})"
-        ttk.Label(csv_frame, text=csv_hint,
-                 foreground='gray').pack(side='right', padx=10)
-        
+        csv_hint = t("export.csvHint", self.lang, time=csv_time)
+        ttk.Label(csv_frame, text=csv_hint, foreground='gray').pack(side=ps, padx=10)
         pdf_frame = ttk.Frame(type_frame)
         pdf_frame.pack(fill='x', pady=5)
         ttk.Radiobutton(pdf_frame, text="PDF", variable=self.export_type,
-                       value='pdf', command=self._on_type_change).pack(side='right')
+                       value='pdf', command=self._on_type_change).pack(side=ps)
         pdf_time = self.exporter.estimate_export_time(self.invoice_count, 'pdf')
-        pdf_hint = f"(separate files - {pdf_time})" if self.lang == LANG_EN else f"(ملفات منفصلة - {pdf_time})"
-        ttk.Label(pdf_frame, text=pdf_hint,
-                 foreground='gray').pack(side='right', padx=10)
-        
-        # Description
-        self.desc_label = ttk.Label(frame, text="", wraplength=350, justify='right')
+        pdf_hint = t("export.pdfHint", self.lang, time=pdf_time)
+        ttk.Label(pdf_frame, text=pdf_hint, foreground='gray').pack(side=ps, padx=10)
+        self.desc_label = ttk.Label(frame, text="", wraplength=350, justify=jf)
         self.desc_label.pack(fill='x', pady=10)
         self._update_description()
-        
-        # Buttons
         btn_frame = ttk.Frame(frame)
         btn_frame.pack(fill='x', pady=20)
-        
-        ttk.Button(btn_frame, text="Cancel" if self.lang == LANG_EN else "إلغاء", command=self.destroy,
-                  width=12).pack(side='left', padx=5)
-        ttk.Button(btn_frame, text="Export" if self.lang == LANG_EN else "تصدير", command=self._on_export,
-                  width=12).pack(side='right', padx=5)
+        ttk.Button(btn_frame, text=t("export.cancel", self.lang), command=self.destroy,
+                  width=12).pack(side=pso, padx=5)
+        ttk.Button(btn_frame, text=t("export.export", self.lang), command=self._on_export,
+                  width=12).pack(side=ps, padx=5)
     
     def _on_type_change(self):
         """Handle export type change"""
@@ -376,10 +364,7 @@ class ExportOptionsDialog(tk.Toplevel):
     
     def _update_description(self):
         """Update description based on selected type"""
-        if self.export_type.get() == 'csv':
-            desc = "All selected invoices will be exported to a single CSV file (Excel-friendly)." if self.lang == LANG_EN else "سيتم تصدير جميع الفواتير المحددة في ملف CSV واحد يمكن فتحه في Excel."
-        else:
-            desc = "A separate PDF will be generated for each invoice in the selected folder." if self.lang == LANG_EN else "سيتم إنشاء ملف PDF منفصل لكل فاتورة في المجلد المحدد."
+        desc = t("export.csvDesc", self.lang) if self.export_type.get() == 'csv' else t("export.pdfDesc", self.lang)
         self.desc_label.configure(text=desc)
     
     def _on_export(self):
@@ -391,7 +376,7 @@ class ExportOptionsDialog(tk.Toplevel):
             default_name = self.exporter.get_default_csv_filename()
             filepath = filedialog.asksaveasfilename(
                 parent=self,
-                title="Save CSV" if self.lang == LANG_EN else "حفظ ملف CSV",
+                title=t("export.saveCsv", self.lang),
                 defaultextension='.csv',
                 filetypes=[('CSV files', '*.csv'), ('All files', '*.*')],
                 initialfile=default_name
@@ -405,7 +390,7 @@ class ExportOptionsDialog(tk.Toplevel):
             default_folder = self.exporter.get_default_pdf_folder()
             folder = filedialog.askdirectory(
                 parent=self,
-                title="Choose PDF output folder" if self.lang == LANG_EN else "اختر مجلد حفظ ملفات PDF",
+                title=t("export.choosePdfFolder", self.lang),
                 initialdir=default_folder
             )
             
@@ -433,7 +418,7 @@ def show_export_dialog(parent, export_type: str, invoice_ids: List[int],
         default_name = exporter.get_default_csv_filename()
         filepath = filedialog.asksaveasfilename(
             parent=parent,
-            title="Save CSV" if lang == LANG_EN else "حفظ ملف CSV",
+            title=t("export.saveCsv", lang),
             defaultextension='.csv',
             filetypes=[('CSV files', '*.csv'), ('All files', '*.*')],
             initialfile=default_name
@@ -447,7 +432,7 @@ def show_export_dialog(parent, export_type: str, invoice_ids: List[int],
         default_folder = exporter.get_default_pdf_folder()
         folder = filedialog.askdirectory(
             parent=parent,
-            title="Choose PDF output folder" if lang == LANG_EN else "اختر مجلد حفظ ملفات PDF",
+            title=t("export.choosePdfFolder", lang),
             initialdir=default_folder
         )
         

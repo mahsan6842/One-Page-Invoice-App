@@ -12,7 +12,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.database import get_database
-from app.i18n import LANG_AR, LANG_EN, t, set_current_lang
+from app.i18n import LANG_AR, LANG_EN, t, set_current_lang, pack_side, pack_side_opposite
 from ui.invoice_form import InvoiceForm
 from ui.invoice_history import InvoiceHistory
 from ui.invoice_view import InvoiceView
@@ -25,6 +25,8 @@ class MainWindow:
     
     def __init__(self):
         self.root = tk.Tk()
+        self.root._main_window = self  # For dialogs to register for language updates
+        self._open_dialogs = []  # Track open Toplevels for language propagation
         # Initialize database
         self.db = get_database()
         settings = self.db.get_company_settings()
@@ -123,30 +125,26 @@ class MainWindow:
         """Create toolbar"""
         self.toolbar = ttk.Frame(self.root)
         self.toolbar.pack(fill='x', padx=5, pady=5)
-        
-        # Toolbar buttons
+        ps = pack_side(self.lang)
+        pso = pack_side_opposite(self.lang)
         self.btn_home = ttk.Button(self.toolbar, text=t("toolbar.home", self.lang),
                                    command=lambda: self._switch_tab(0), width=12)
-        self.btn_home.pack(side='right', padx=2)
+        self.btn_home.pack(side=ps, padx=2)
         self.btn_history = ttk.Button(self.toolbar, text=t("toolbar.history", self.lang),
                                       command=lambda: self._switch_tab(1), width=12)
-        self.btn_history.pack(side='right', padx=2)
+        self.btn_history.pack(side=ps, padx=2)
         self.btn_settings = ttk.Button(self.toolbar, text=t("toolbar.settings", self.lang),
                                        command=lambda: self._switch_tab(2), width=12)
-        self.btn_settings.pack(side='right', padx=2)
-        
-        # Separator
-        ttk.Separator(self.toolbar, orient='vertical').pack(side='right', fill='y', padx=10)
-        
+        self.btn_settings.pack(side=ps, padx=2)
+        self.toolbar_sep = ttk.Separator(self.toolbar, orient='vertical')
+        self.toolbar_sep.pack(side=ps, fill='y', padx=10)
         self.btn_new_invoice = ttk.Button(self.toolbar, text=t("toolbar.newInvoice", self.lang),
                                           command=self._new_invoice, width=15)
-        self.btn_new_invoice.pack(side='right', padx=2)
-        
-        # Company name on left
+        self.btn_new_invoice.pack(side=ps, padx=2)
         settings = self.db.get_company_settings()
         self.company_label = ttk.Label(self.toolbar, text=settings.get('company_name_ar', 'نظام الفواتير'),
                                        font=('Arial', 12, 'bold'))
-        self.company_label.pack(side='left', padx=10)
+        self.company_label.pack(side=pso, padx=10)
     
     def _create_notebook(self):
         """Create tabbed interface"""
@@ -185,6 +183,7 @@ class MainWindow:
         if new_lang == self.lang:
             return
         self.lang = new_lang
+        set_current_lang(self.lang)
         try:
             self.db.update_company_settings(ui_language=self.lang)
         except Exception as e:
@@ -232,7 +231,17 @@ class MainWindow:
         except Exception:
             pass
 
-        # Toolbar
+        # Toolbar - repack for direction
+        ps, pso = pack_side(lang), pack_side_opposite(lang)
+        for w in [self.btn_home, self.btn_history, self.btn_settings, self.toolbar_sep, self.btn_new_invoice]:
+            w.pack_forget()
+        self.btn_home.pack(side=ps, padx=2)
+        self.btn_history.pack(side=ps, padx=2)
+        self.btn_settings.pack(side=ps, padx=2)
+        self.toolbar_sep.pack(side=ps, fill='y', padx=10)
+        self.btn_new_invoice.pack(side=ps, padx=2)
+        self.company_label.pack_forget()
+        self.company_label.pack(side=pso, padx=10)
         self.btn_home.configure(text=t("toolbar.home", lang))
         self.btn_history.configure(text=t("toolbar.history", lang))
         self.btn_settings.configure(text=t("toolbar.settings", lang))
@@ -265,6 +274,15 @@ class MainWindow:
             self.invoice_history.apply_language(lang)
         if hasattr(self.settings_screen, "apply_language"):
             self.settings_screen.apply_language(lang)
+
+        # Update open dialogs (InvoiceView, ExportDialog, etc.)
+        for d in list(self._open_dialogs):
+            try:
+                if d.winfo_exists() and hasattr(d, "apply_language"):
+                    d.apply_language(lang)
+            except (tk.TclError, AttributeError):
+                if d in self._open_dialogs:
+                    self._open_dialogs.remove(d)
     
     def _center_window(self):
         """Center window on screen"""
@@ -288,20 +306,30 @@ class MainWindow:
     
     def _on_invoice_saved(self, invoice):
         """Handle invoice saved"""
-        msg = f"تم حفظ الفاتورة رقم {invoice['invoice_number']}" if self.lang != LANG_EN else f"Invoice {invoice['invoice_number']} saved"
+        msg = t("msg.invoiceSavedShort", self.lang, number=invoice['invoice_number'])
         self.statusbar.set_success(msg)
         self.invoice_history.refresh()
     
     def _on_invoice_save_print(self, invoice):
         """Handle save and print"""
-        msg = f"تم حفظ الفاتورة رقم {invoice['invoice_number']}" if self.lang != LANG_EN else f"Invoice {invoice['invoice_number']} saved"
+        msg = t("msg.invoiceSavedShort", self.lang, number=invoice['invoice_number'])
         self.statusbar.set_success(msg)
         self.invoice_history.refresh()
         self._on_view_invoice(invoice, print_mode=True)
     
     def _on_view_invoice(self, invoice, print_mode: bool = False):
         """View invoice"""
-        InvoiceView(self.root, invoice, print_mode=print_mode)
+        def _unreg(d):
+            try:
+                if d in self._open_dialogs:
+                    self._open_dialogs.remove(d)
+            except (ValueError, AttributeError):
+                pass
+        view = InvoiceView(
+            self.root, invoice, print_mode=print_mode,
+            on_register=lambda d: self._open_dialogs.append(d),
+            on_unregister=_unreg
+        )
     
     def _on_edit_invoice(self, invoice):
         """Edit invoice"""

@@ -11,7 +11,7 @@ from io import StringIO
 
 from app.pdf_generator import generate_invoice_pdf, PDF_AVAILABLE
 from app.database import get_database
-from app.i18n import LANG_EN
+from app.i18n import LANG_EN, translate_payment_type
 
 
 class InvoiceExporter:
@@ -121,7 +121,7 @@ class InvoiceExporter:
             if progress_callback:
                 progress_callback(total, total, "Writing CSV..." if en else "جاري كتابة ملف CSV...")
             
-            self._write_csv(invoices, output_path, include_arabic_headers)
+            self._write_csv(invoices, output_path, include_arabic_headers, lang)
             
             return True, (f"Exported {len(invoices)} invoice(s) successfully." if en else f"تم تصدير {len(invoices)} فاتورة بنجاح")
             
@@ -135,8 +135,9 @@ class InvoiceExporter:
             return False, (f"Export error: {str(e)}" if en else f"حدث خطأ أثناء التصدير: {str(e)}")
     
     def _write_csv(self, invoices: List[Dict], output_path: str, 
-                   include_arabic_headers: bool):
+                   include_arabic_headers: bool, lang: str = None):
         """Write invoices to CSV file with proper encoding for Excel"""
+        lang = lang or 'ar'
         
         # Use UTF-8 with BOM for Excel Arabic support
         with open(output_path, 'w', newline='', encoding='utf-8-sig') as f:
@@ -161,11 +162,9 @@ class InvoiceExporter:
                                    'tax_amount', 'net_total'):
                         value = f"{float(value or 0):.2f}"
                     elif col_key == 'status':
-                        # keep Arabic status for Arabic headers; otherwise English
-                        if include_arabic_headers:
-                            value = 'نشطة' if value == 'active' else 'ملغاة'
-                        else:
-                            value = 'Active' if value == 'active' else 'Cancelled'
+                        value = 'نشطة' if value == 'active' else 'ملغاة' if include_arabic_headers else ('Active' if value == 'active' else 'Cancelled')
+                    elif col_key == 'payment_type':
+                        value = translate_payment_type(value, lang)
                     elif value is None:
                         value = ''
                     

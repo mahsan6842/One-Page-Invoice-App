@@ -9,8 +9,8 @@ from typing import Callable, Optional, Dict, Any, List, Set
 from datetime import datetime, timedelta
 
 from app.database import get_database
-from app.i18n import LANG_AR, LANG_EN, t
-from ui.widgets import ArabicEntry
+from app.i18n import LANG_AR, LANG_EN, t, get_current_lang, pack_side, pack_side_opposite, tree_anchor_for
+from ui.widgets import ArabicEntry, apply_direction_recursive
 from ui.export_dialog import show_export_dialog, ExportProgressDialog
 
 
@@ -26,7 +26,7 @@ class InvoiceHistory(ttk.Frame):
         self.db = get_database()
         self.current_page = 1
         self.per_page = 50
-        self.lang = LANG_AR
+        self.lang = get_current_lang() or LANG_AR
         
         # Track selected invoice IDs
         self.selected_ids: Set[int] = set()
@@ -36,39 +36,34 @@ class InvoiceHistory(ttk.Frame):
         self.refresh()
     
     def _create_widgets(self):
+        ps = pack_side(self.lang)
+        pso = pack_side_opposite(self.lang)
         # === Search Bar ===
         search_frame = ttk.Frame(self)
         search_frame.pack(fill='x', padx=10, pady=10)
-        
-        # Search entry
+        self.search_frame = search_frame
         self.search_label = ttk.Label(search_frame, text=t("history.searchLabel", self.lang))
-        self.search_label.pack(side='right', padx=5)
+        self.search_label.pack(side=ps, padx=5)
         self.search_entry = ArabicEntry(search_frame, width=25)
-        self.search_entry.pack(side='right', padx=5)
+        self.search_entry.pack(side=ps, padx=5)
         self.search_entry.bind('<KeyRelease>', self._on_search)
         
-        # Date filters
         self.from_label = ttk.Label(search_frame, text=t("common.from", self.lang))
-        self.from_label.pack(side='right', padx=(20, 5))
+        self.from_label.pack(side=ps, padx=(20, 5))
         self.date_from = ttk.Entry(search_frame, width=12)
-        self.date_from.pack(side='right', padx=5)
+        self.date_from.pack(side=ps, padx=5)
         self.date_from.insert(0, (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d'))
-        
         self.to_label = ttk.Label(search_frame, text=t("common.to", self.lang))
-        self.to_label.pack(side='right', padx=5)
+        self.to_label.pack(side=ps, padx=5)
         self.date_to = ttk.Entry(search_frame, width=12)
-        self.date_to.pack(side='right', padx=5)
+        self.date_to.pack(side=ps, padx=5)
         self.date_to.insert(0, datetime.now().strftime('%Y-%m-%d'))
-        
-        # Search button
         self.search_btn = ttk.Button(search_frame, text=t("common.search", self.lang), command=self.refresh)
-        self.search_btn.pack(side='right', padx=10)
+        self.search_btn.pack(side=ps, padx=10)
         
-        # === Invoice Table with Checkboxes ===
-        table_frame = ttk.Frame(self)
-        table_frame.pack(fill='both', expand=True, padx=10, pady=5)
-        
-        # Create Treeview with checkbox column
+        self.table_frame = ttk.Frame(self)
+        self.table_frame.pack(fill='both', expand=True, padx=10, pady=5)
+        table_frame = self.table_frame
         columns = ('select', 'row_num', 'invoice_number', 'invoice_date', 
                    'customer_name', 'net_total', 'status')
         self.tree = ttk.Treeview(table_frame, columns=columns, show='headings', 
@@ -76,37 +71,33 @@ class InvoiceHistory(ttk.Frame):
         
         # Column configurations
         col_config = [
-            ('select', t("history.col.select", self.lang), 40),
-            ('row_num', t("history.col.row", self.lang), 40),
-            ('invoice_number', t("history.col.number", self.lang), 120),
-            ('invoice_date', t("history.col.date", self.lang), 100),
-            ('customer_name', t("history.col.customer", self.lang), 180),
-            ('net_total', t("history.col.total", self.lang), 100),
-            ('status', t("history.col.status", self.lang), 70)
+            ('select', t("history.col.select", self.lang), 40, 'center'),
+            ('row_num', t("history.col.row", self.lang), 40, 'center'),
+            ('invoice_number', t("history.col.number", self.lang), 120, tree_anchor_for(self.lang)),
+            ('invoice_date', t("history.col.date", self.lang), 100, tree_anchor_for(self.lang)),
+            ('customer_name', t("history.col.customer", self.lang), 180, tree_anchor_for(self.lang)),
+            ('net_total', t("history.col.total", self.lang), 100, tree_anchor_for(self.lang)),
+            ('status', t("history.col.status", self.lang), 70, tree_anchor_for(self.lang))
         ]
-        
-        for col_id, header, width in col_config:
-            self.tree.heading(col_id, text=header, anchor='center',
+        self.col_config = col_config
+        for col_id, header, width, anch in col_config:
+            self.tree.heading(col_id, text=header, anchor=anch,
                             command=lambda c=col_id: self._on_header_click(c))
-            self.tree.column(col_id, width=width, anchor='center', minwidth=width)
+            self.tree.column(col_id, width=width, anchor=anch, minwidth=width)
         
-        # Scrollbar
-        scrollbar = ttk.Scrollbar(table_frame, orient='vertical', command=self.tree.yview)
-        self.tree.configure(yscrollcommand=scrollbar.set)
-        
-        self.tree.pack(side='right', fill='both', expand=True)
-        scrollbar.pack(side='left', fill='y')
+        self.table_scrollbar = ttk.Scrollbar(table_frame, orient='vertical', command=self.tree.yview)
+        self.tree.configure(yscrollcommand=self.table_scrollbar.set)
+        self.tree.pack(side=ps, fill='both', expand=True)
+        self.table_scrollbar.pack(side=pso, fill='y')
         
         # Bindings
         self.tree.bind('<Double-1>', self._on_double_click)
         self.tree.bind('<Button-1>', self._on_click)
         self.tree.bind('<space>', self._toggle_selected)
         
-        # === Selection Controls ===
-        select_frame = ttk.Frame(self)
-        select_frame.pack(fill='x', padx=10, pady=5)
-        
-        # Select all checkbox
+        self.select_frame = ttk.Frame(self)
+        self.select_frame.pack(fill='x', padx=10, pady=5)
+        select_frame = self.select_frame
         self.select_all_var = tk.BooleanVar(value=False)
         self.select_all_cb = ttk.Checkbutton(
             select_frame, 
@@ -114,67 +105,51 @@ class InvoiceHistory(ttk.Frame):
             variable=self.select_all_var,
             command=self._on_select_all
         )
-        self.select_all_cb.pack(side='right', padx=5)
+        self.select_all_cb.pack(side=ps, padx=5)
         
-        # Selection count label
         self.selection_label = ttk.Label(select_frame, text=t("history.selectedCount", self.lang, count=0))
-        self.selection_label.pack(side='right', padx=10)
-        
-        # Clear selection button
+        self.selection_label.pack(side=ps, padx=10)
         self.clear_btn = ttk.Button(select_frame, text=t("history.clearSelection", self.lang),
                                     command=self._clear_selection, width=12)
-        self.clear_btn.pack(side='right', padx=5)
-        
-        # === Export Buttons ===
+        self.clear_btn.pack(side=ps, padx=5)
         self.export_frame = ttk.LabelFrame(self, text=t("history.exportGroup", self.lang), padding=5)
         self.export_frame.pack(fill='x', padx=10, pady=5)
-        
         self.export_csv_btn = ttk.Button(self.export_frame, text=t("history.exportCsv", self.lang),
                                          command=self._export_csv, width=18)
-        self.export_csv_btn.pack(side='right', padx=5)
+        self.export_csv_btn.pack(side=ps, padx=5)
         self.export_pdf_btn = ttk.Button(self.export_frame, text=t("history.exportPdf", self.lang),
                                          command=self._export_pdf, width=18)
-        self.export_pdf_btn.pack(side='right', padx=5)
-        
-        # Export info label
+        self.export_pdf_btn.pack(side=ps, padx=5)
         self.export_info = ttk.Label(self.export_frame, text=t("history.exportHint", self.lang), foreground='gray')
-        self.export_info.pack(side='right', padx=20)
-        
-        # === Action Buttons ===
-        action_frame = ttk.Frame(self)
-        action_frame.pack(fill='x', padx=10, pady=5)
-        
+        self.export_info.pack(side=ps, padx=20)
+        self.action_frame = ttk.Frame(self)
+        self.action_frame.pack(fill='x', padx=10, pady=5)
+        action_frame = self.action_frame
         self.view_btn = ttk.Button(action_frame, text=t("history.action.view", self.lang),
                                    command=self._view_selected, width=10)
-        self.view_btn.pack(side='right', padx=3)
+        self.view_btn.pack(side=ps, padx=3)
         self.print_btn = ttk.Button(action_frame, text=t("history.action.print", self.lang),
                                     command=self._print_selected, width=10)
-        self.print_btn.pack(side='right', padx=3)
+        self.print_btn.pack(side=ps, padx=3)
         self.cancel_btn = ttk.Button(action_frame, text=t("history.action.cancel", self.lang),
                                      command=self._cancel_selected, width=10)
-        self.cancel_btn.pack(side='right', padx=3)
+        self.cancel_btn.pack(side=ps, padx=3)
         self.refresh_btn = ttk.Button(action_frame, text=t("history.action.refresh", self.lang),
                                       command=self.refresh, width=10)
-        self.refresh_btn.pack(side='right', padx=3)
-        
-        # === Summary Bar ===
-        summary_frame = ttk.Frame(self)
-        summary_frame.pack(fill='x', padx=10, pady=10)
-        
+        self.refresh_btn.pack(side=ps, padx=3)
+        self.summary_frame = ttk.Frame(self)
+        self.summary_frame.pack(fill='x', padx=10, pady=10)
+        summary_frame = self.summary_frame
         self.count_label = ttk.Label(summary_frame, text=t("history.summary.count", self.lang, count=0))
-        self.count_label.pack(side='right', padx=20)
-        
+        self.count_label.pack(side=ps, padx=20)
         self.total_label = ttk.Label(summary_frame, text=t("history.summary.total", self.lang, total="0.00"))
-        self.total_label.pack(side='right', padx=20)
-        
-        # Pagination
+        self.total_label.pack(side=ps, padx=20)
         self.page_label = ttk.Label(summary_frame, text=t("history.page", self.lang, page=1))
-        self.page_label.pack(side='left', padx=5)
-        
-        ttk.Button(summary_frame, text="◀", command=self._next_page,
-                  width=3).pack(side='left', padx=2)
-        ttk.Button(summary_frame, text="▶", command=self._prev_page,
-                  width=3).pack(side='left', padx=2)
+        self.page_label.pack(side=pso, padx=5)
+        self.prev_btn = ttk.Button(summary_frame, text="◀", command=self._next_page, width=3)
+        self.prev_btn.pack(side=pso, padx=2)
+        self.next_btn = ttk.Button(summary_frame, text="▶", command=self._prev_page, width=3)
+        self.next_btn.pack(side=pso, padx=2)
     
     def refresh(self):
         """Refresh invoice list"""
@@ -305,7 +280,7 @@ class InvoiceHistory(ttk.Frame):
         self.selection_label.configure(text=t("history.selectedCount", self.lang, count=count))
         
         if count > 0:
-            msg = f"جاهز لتصدير {count} فاتورة" if self.lang != LANG_EN else f"Ready to export {count} invoice(s)"
+            msg = t("msg.readyExport", self.lang, count=count)
             self.export_info.configure(text=msg, foreground='green')
         else:
             self.export_info.configure(text=t("history.exportHint", self.lang), foreground='gray')
@@ -340,9 +315,7 @@ class InvoiceHistory(ttk.Frame):
         invoice_ids = self._get_selected_invoice_ids()
         
         if not invoice_ids:
-            title = "تنبيه" if self.lang != LANG_EN else "Warning"
-            msg = "يرجى تحديد فاتورة واحدة على الأقل للتصدير" if self.lang != LANG_EN else "Please select at least one invoice to export."
-            messagebox.showwarning(title, msg)
+            messagebox.showwarning(t("msg.warning", self.lang), t("msg.selectOneExport", self.lang))
             return
         
         # Show export dialog
@@ -358,9 +331,7 @@ class InvoiceHistory(ttk.Frame):
         invoice_ids = self._get_selected_invoice_ids()
         
         if not invoice_ids:
-            title = "تنبيه" if self.lang != LANG_EN else "Warning"
-            msg = "يرجى تحديد فاتورة واحدة على الأقل للتصدير" if self.lang != LANG_EN else "Please select at least one invoice to export."
-            messagebox.showwarning(title, msg)
+            messagebox.showwarning(t("msg.warning", self.lang), t("msg.selectOneExport", self.lang))
             return
         
         # Show export dialog
@@ -387,9 +358,7 @@ class InvoiceHistory(ttk.Frame):
             if invoice and self.on_view_callback:
                 self.on_view_callback(invoice)
         else:
-            title = "تنبيه" if self.lang != LANG_EN else "Warning"
-            msg = "يرجى اختيار فاتورة للعرض" if self.lang != LANG_EN else "Please select an invoice to view."
-            messagebox.showwarning(title, msg)
+            messagebox.showwarning(t("msg.warning", self.lang), t("msg.selectInvoiceView", self.lang))
     
     def _print_selected(self):
         """Print selected invoice"""
@@ -399,25 +368,20 @@ class InvoiceHistory(ttk.Frame):
             if invoice and self.on_view_callback:
                 self.on_view_callback(invoice, print_mode=True)
         else:
-            title = "تنبيه" if self.lang != LANG_EN else "Warning"
-            msg = "يرجى اختيار فاتورة للطباعة" if self.lang != LANG_EN else "Please select an invoice to print."
-            messagebox.showwarning(title, msg)
+            messagebox.showwarning(t("msg.warning", self.lang), t("msg.selectInvoicePrint", self.lang))
     
     def _cancel_selected(self):
         """Cancel selected invoice"""
         invoice_id = self._get_clicked_invoice_id()
         if invoice_id:
             title = t("common.confirm", self.lang)
-            msg = "هل أنت متأكد من إلغاء هذه الفاتورة؟" if self.lang != LANG_EN else "Are you sure you want to cancel this invoice?"
+            msg = t("msg.confirmCancelInvoice", self.lang)
             if messagebox.askyesno(title, msg):
                 self.db.cancel_invoice(invoice_id)
                 self.refresh()
-                messagebox.showinfo(t("common.success", self.lang),
-                                    "تم إلغاء الفاتورة" if self.lang != LANG_EN else "Invoice cancelled.")
+                messagebox.showinfo(t("common.success", self.lang), t("msg.invoiceCancelled", self.lang))
         else:
-            title = "تنبيه" if self.lang != LANG_EN else "Warning"
-            msg = "يرجى اختيار فاتورة" if self.lang != LANG_EN else "Please select an invoice."
-            messagebox.showwarning(title, msg)
+            messagebox.showwarning(t("msg.warning", self.lang), t("msg.selectInvoice", self.lang))
     
     def _on_double_click(self, event):
         """Handle double-click on row"""
@@ -448,15 +412,17 @@ class InvoiceHistory(ttk.Frame):
         self.to_label.configure(text=t("common.to", self.lang))
         self.search_btn.configure(text=t("common.search", self.lang))
 
-        # Tree headings
+        ta = tree_anchor_for(self.lang)
+        headers = [t("history.col.select", self.lang), t("history.col.row", self.lang),
+                   t("history.col.number", self.lang), t("history.col.date", self.lang),
+                   t("history.col.customer", self.lang), t("history.col.total", self.lang),
+                   t("history.col.status", self.lang)]
+        col_ids = ['select', 'row_num', 'invoice_number', 'invoice_date', 'customer_name', 'net_total', 'status']
+        anchors = ['center', 'center', ta, ta, ta, ta, ta]
         try:
-            self.tree.heading('select', text=t("history.col.select", self.lang), anchor='center')
-            self.tree.heading('row_num', text=t("history.col.row", self.lang), anchor='center')
-            self.tree.heading('invoice_number', text=t("history.col.number", self.lang), anchor='center')
-            self.tree.heading('invoice_date', text=t("history.col.date", self.lang), anchor='center')
-            self.tree.heading('customer_name', text=t("history.col.customer", self.lang), anchor='center')
-            self.tree.heading('net_total', text=t("history.col.total", self.lang), anchor='center')
-            self.tree.heading('status', text=t("history.col.status", self.lang), anchor='center')
+            for col_id, header, anch in zip(col_ids, headers, anchors):
+                self.tree.heading(col_id, text=header, anchor=anch)
+                self.tree.column(col_id, anchor=anch)
         except Exception:
             pass
 
@@ -473,6 +439,48 @@ class InvoiceHistory(ttk.Frame):
         self.cancel_btn.configure(text=t("history.action.cancel", self.lang))
         self.refresh_btn.configure(text=t("history.action.refresh", self.lang))
 
+        # Repack for direction
+        ps, pso = pack_side(self.lang), pack_side_opposite(self.lang)
+        for w in [self.search_label, self.search_entry, self.from_label, self.date_from, self.to_label, self.date_to, self.search_btn]:
+            w.pack_forget()
+        self.search_label.pack(side=ps, padx=5)
+        self.search_entry.pack(side=ps, padx=5)
+        self.from_label.pack(side=ps, padx=(20, 5))
+        self.date_from.pack(side=ps, padx=5)
+        self.to_label.pack(side=ps, padx=5)
+        self.date_to.pack(side=ps, padx=5)
+        self.search_btn.pack(side=ps, padx=10)
+        self.tree.pack_forget()
+        self.table_scrollbar.pack_forget()
+        self.tree.pack(side=ps, fill='both', expand=True)
+        self.table_scrollbar.pack(side=pso, fill='y')
+        for w in [self.select_all_cb, self.selection_label, self.clear_btn]:
+            w.pack_forget()
+        self.select_all_cb.pack(side=ps, padx=5)
+        self.selection_label.pack(side=ps, padx=10)
+        self.clear_btn.pack(side=ps, padx=5)
+        for w in [self.export_csv_btn, self.export_pdf_btn, self.export_info]:
+            w.pack_forget()
+        self.export_csv_btn.pack(side=ps, padx=5)
+        self.export_pdf_btn.pack(side=ps, padx=5)
+        self.export_info.pack(side=ps, padx=20)
+        for w in [self.view_btn, self.print_btn, self.cancel_btn, self.refresh_btn]:
+            w.pack_forget()
+        self.view_btn.pack(side=ps, padx=3)
+        self.print_btn.pack(side=ps, padx=3)
+        self.cancel_btn.pack(side=ps, padx=3)
+        self.refresh_btn.pack(side=ps, padx=3)
+        for w in [self.count_label, self.total_label]:
+            w.pack_forget()
+        self.count_label.pack(side=ps, padx=20)
+        self.total_label.pack(side=ps, padx=20)
+        for w in [self.page_label, self.prev_btn, self.next_btn]:
+            w.pack_forget()
+        self.page_label.pack(side=pso, padx=5)
+        self.prev_btn.pack(side=pso, padx=2)
+        self.next_btn.pack(side=pso, padx=2)
+
         # Update dynamic displays
+        apply_direction_recursive(self, self.lang)
         self._update_selection_display()
         self.refresh()

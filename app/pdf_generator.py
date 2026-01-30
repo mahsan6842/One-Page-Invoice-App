@@ -37,6 +37,7 @@ except ImportError:
     print("Warning: arabic-reshaper or python-bidi not installed. Arabic text may not display correctly.")
 
 from app.qr_generator import generate_invoice_qr, QR_AVAILABLE
+from app.i18n import translate_unit, LANG_AR, get_current_lang
 
 
 class ArabicPDFGenerator:
@@ -145,10 +146,11 @@ class ArabicPDFGenerator:
         font_name = 'Arabic' if self.font_registered else 'Helvetica'
         
         try:
+            lang = company_settings.get('ui_language') or get_current_lang() or LANG_AR
             self._draw_header(c, company_settings, font_name)
             self._draw_invoice_info(c, invoice_data, font_name)
             self._draw_customer_info(c, invoice_data, font_name)
-            self._draw_items_table(c, invoice_data, font_name)
+            self._draw_items_table(c, invoice_data, font_name, lang)
             self._draw_totals_and_qr(c, invoice_data, company_settings, font_name)
             self._draw_terms(c, company_settings, font_name)
             self._draw_signature(c, font_name)
@@ -280,8 +282,9 @@ class ArabicPDFGenerator:
         y -= 10
         c.line(self.MARGIN, y, self.PAGE_WIDTH - self.MARGIN, y)
     
-    def _draw_items_table(self, c: canvas.Canvas, invoice: dict, font_name: str):
+    def _draw_items_table(self, c: canvas.Canvas, invoice: dict, font_name: str, lang: str = None):
         """Draw items table"""
+        lang = lang or LANG_AR
         y = self.PAGE_HEIGHT - 260
         
         items = invoice.get('items', [])
@@ -328,7 +331,7 @@ class ArabicPDFGenerator:
                 self.format_number(item.get('total_price', 0)),
                 self.format_number(item.get('unit_price', 0)),
                 str(int(item.get('quantity', 1))),
-                self.arabic_text(item.get('unit', 'حبة')),
+                self.arabic_text(translate_unit(item.get('unit', ''), lang) or translate_unit('piece', lang)),
                 self.arabic_text(item.get('item_name', '')),
                 item.get('item_barcode', '')
             ]

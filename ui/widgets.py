@@ -7,7 +7,25 @@ import tkinter as tk
 from tkinter import ttk
 from typing import Callable, List, Optional, Any
 
-from app.i18n import get_current_lang, is_rtl, LANG_AR
+from app.i18n import get_current_lang, is_rtl, LANG_AR, t, anchor_for, justify_for, pack_side, pack_side_opposite, tree_anchor_for
+
+
+def bind_canvas_resize(canvas: tk.Canvas, window_id: int) -> None:
+    """Bind canvas Configure to update inner frame width for responsive behavior."""
+    def _on_configure(event):
+        canvas.itemconfig(window_id, width=event.width)
+    canvas.bind('<Configure>', _on_configure)
+
+
+def apply_direction_recursive(widget: tk.Widget, lang: str) -> None:
+    """Recursively apply direction to widget and its descendants that support it."""
+    if hasattr(widget, 'apply_direction'):
+        widget.apply_direction(lang)
+    try:
+        for child in widget.winfo_children():
+            apply_direction_recursive(child, lang)
+    except tk.TclError:
+        pass
 
 
 class ArabicEntry(ttk.Entry):
@@ -15,19 +33,26 @@ class ArabicEntry(ttk.Entry):
     
     def __init__(self, parent, **kwargs):
         super().__init__(parent, **kwargs)
-        lang = get_current_lang() or LANG_AR
-        self.configure(justify='right' if is_rtl(lang) else 'left')
+        self.apply_direction(get_current_lang() or LANG_AR)
+    
+    def apply_direction(self, lang: str):
+        """Update text alignment based on language direction."""
+        self.configure(justify=justify_for(lang))
 
 
 class ArabicLabel(ttk.Label):
     """Label with RTL support"""
     
     def __init__(self, parent, **kwargs):
-        # Default anchor based on current app language direction
-        if 'anchor' not in kwargs:
-            lang = get_current_lang() or LANG_AR
-            kwargs['anchor'] = 'e' if is_rtl(lang) else 'w'
+        self._direction_controlled = 'anchor' not in kwargs
+        if self._direction_controlled:
+            kwargs['anchor'] = anchor_for(get_current_lang() or LANG_AR)
         super().__init__(parent, **kwargs)
+    
+    def apply_direction(self, lang: str):
+        """Update alignment based on language direction."""
+        if self._direction_controlled:
+            self.configure(anchor=anchor_for(lang))
 
 
 class NumberEntry(ttk.Entry):
@@ -42,8 +67,12 @@ class NumberEntry(ttk.Entry):
         
         # Register validation
         vcmd = (self.register(self._validate), '%P')
-        lang = get_current_lang() or LANG_AR
-        self.configure(validate='key', validatecommand=vcmd, justify='right' if is_rtl(lang) else 'left')
+        self.configure(validate='key', validatecommand=vcmd)
+        self.apply_direction(get_current_lang() or LANG_AR)
+    
+    def apply_direction(self, lang: str):
+        """Update text alignment based on language direction."""
+        self.configure(justify=justify_for(lang))
     
     def _validate(self, value: str) -> bool:
         if value == '' or value == '-':
@@ -76,10 +105,9 @@ class LabeledEntry(ttk.Frame):
     def __init__(self, parent, label_text: str, entry_type: str = 'text', 
                  width: int = 20, **kwargs):
         super().__init__(parent)
-        
-        # Label
+        lang = get_current_lang() or LANG_AR
         self.label = ArabicLabel(self, text=label_text)
-        self.label.pack(anchor='e', pady=(0, 2))
+        self.label.pack(anchor=anchor_for(lang), pady=(0, 2))
         
         # Entry
         if entry_type == 'number':
@@ -102,6 +130,11 @@ class LabeledEntry(ttk.Frame):
             return float(self.entry.get())
         except ValueError:
             return 0.0
+
+    def apply_direction(self, lang: str):
+        """Update label anchor based on language direction."""
+        self.label.pack_forget()
+        self.label.pack(anchor=anchor_for(lang), pady=(0, 2))
 
 
 class AutocompleteEntry(ttk.Entry):
@@ -226,17 +259,25 @@ class ScrollableFrame(ttk.Frame):
         
         # Configure
         self.canvas.configure(yscrollcommand=self.scrollbar.set)
-        
-        # Pack
-        self.scrollbar.pack(side='right', fill='y')
-        self.canvas.pack(side='left', fill='both', expand=True)
+        lang = get_current_lang() or LANG_AR
+        ps, pso = pack_side(lang), pack_side_opposite(lang)
+        self.scrollbar.pack(side=pso, fill='y')
+        self.canvas.pack(side=ps, fill='both', expand=True)
         
         # Bindings
         self.inner_frame.bind('<Configure>', self._on_frame_configure)
         self.canvas.bind('<Configure>', self._on_canvas_configure)
-        
+
         # Mouse wheel
         self.canvas.bind_all('<MouseWheel>', self._on_mousewheel)
+
+    def apply_direction(self, lang: str):
+        """Repack scrollbar and canvas for language direction."""
+        ps, pso = pack_side(lang), pack_side_opposite(lang)
+        self.scrollbar.pack_forget()
+        self.canvas.pack_forget()
+        self.scrollbar.pack(side=pso, fill='y')
+        self.canvas.pack(side=ps, fill='both', expand=True)
     
     def _on_frame_configure(self, event):
         self.canvas.configure(scrollregion=self.canvas.bbox('all'))
@@ -268,22 +309,32 @@ class DataTable(ttk.Frame):
         self.tree = ttk.Treeview(self, columns=col_ids, show='headings', 
                                  selectmode='browse')
         
-        # Configure columns
+        lang = get_current_lang() or LANG_AR
+        ta = tree_anchor_for(lang)
+        ps, pso = pack_side(lang), pack_side_opposite(lang)
         for col_id, header, width in columns:
-            self.tree.heading(col_id, text=header, anchor='e')
-            self.tree.column(col_id, width=width, anchor='e')
-        
-        # Scrollbar
-        scrollbar = ttk.Scrollbar(self, orient='vertical', command=self.tree.yview)
-        self.tree.configure(yscrollcommand=scrollbar.set)
-        
-        # Pack
-        self.tree.pack(side='left', fill='both', expand=True)
-        scrollbar.pack(side='right', fill='y')
+            self.tree.heading(col_id, text=header, anchor=ta)
+            self.tree.column(col_id, width=width, anchor=ta)
+        self.scrollbar = ttk.Scrollbar(self, orient='vertical', command=self.tree.yview)
+        self.tree.configure(yscrollcommand=self.scrollbar.set)
+        self.tree.pack(side=ps, fill='both', expand=True)
+        self.scrollbar.pack(side=pso, fill='y')
         
         # Bindings
         self.tree.bind('<<TreeviewSelect>>', self._on_select)
         self.tree.bind('<Double-1>', self._on_double_click)
+
+    def apply_direction(self, lang: str):
+        """Update tree anchors and repack for language direction."""
+        ta = tree_anchor_for(lang)
+        ps, pso = pack_side(lang), pack_side_opposite(lang)
+        for col_id, header, width in self.columns:
+            self.tree.heading(col_id, anchor=ta)
+            self.tree.column(col_id, anchor=ta)
+        self.tree.pack_forget()
+        self.scrollbar.pack_forget()
+        self.tree.pack(side=ps, fill='both', expand=True)
+        self.scrollbar.pack(side=pso, fill='y')
     
     def set_data(self, data: List[List[Any]]):
         """Set table data"""
@@ -323,7 +374,7 @@ class StatusBar(ttk.Frame):
         super().__init__(parent, **kwargs)
 
         lang = get_current_lang() or LANG_AR
-        self.label = ttk.Label(self, text='جاهز', anchor='e' if is_rtl(lang) else 'w')
+        self.label = ttk.Label(self, text=t("common.ready", lang), anchor=anchor_for(lang))
         self.label.pack(fill='x', padx=5, pady=2)
     
     def set_status(self, text: str):
@@ -338,7 +389,7 @@ class StatusBar(ttk.Frame):
     def apply_language(self):
         """Update alignment based on current language direction."""
         lang = get_current_lang() or LANG_AR
-        self.label.configure(anchor='e' if is_rtl(lang) else 'w')
+        self.label.configure(anchor=anchor_for(lang))
 
 
 class ToolButton(ttk.Button):
