@@ -306,8 +306,8 @@ class DataTable(ttk.Frame):
         
         # Create Treeview
         col_ids = [c[0] for c in columns]
-        self.tree = ttk.Treeview(self, columns=col_ids, show='headings', 
-                                 selectmode='browse')
+        self.tree = ttk.Treeview(self, columns=col_ids, show='headings',
+                     selectmode='browse', style='App.Treeview')
         
         lang = get_current_lang() or LANG_AR
         ta = tree_anchor_for(lang)
@@ -374,7 +374,8 @@ class StatusBar(ttk.Frame):
         super().__init__(parent, **kwargs)
 
         lang = get_current_lang() or LANG_AR
-        self.label = ttk.Label(self, text=t("common.ready", lang), anchor=anchor_for(lang))
+        self.label = ttk.Label(self, text=t("common.ready", lang), anchor=anchor_for(lang),
+                       style='Status.TLabel')
         self.label.pack(fill='x', padx=5, pady=2)
     
     def set_status(self, text: str):
@@ -396,7 +397,7 @@ class ToolButton(ttk.Button):
     """Styled toolbar button"""
     
     def __init__(self, parent, text: str, command: Callable = None, **kwargs):
-        super().__init__(parent, text=text, command=command, **kwargs)
+        super().__init__(parent, text=text, command=command, style='Toolbar.TButton', **kwargs)
         self.configure(width=12)
 
 
@@ -404,5 +405,5 @@ class FormSection(ttk.LabelFrame):
     """Styled section frame for forms"""
     
     def __init__(self, parent, title: str, **kwargs):
-        super().__init__(parent, text=title, **kwargs)
+        super().__init__(parent, text=title, style='Section.TLabelframe', **kwargs)
         self.configure(padding=10)

@@ -13,7 +13,7 @@ from app.i18n import (
     LANG_AR, LANG_EN, t, translate_payment_type, get_current_lang,
     get_unit_display_values, translate_unit, payment_type_to_storage,
     pack_side, pack_side_opposite, justify_for, grid_column_label, grid_column_value,
-    sticky_for, pack_anchor_for
+    sticky_for, pack_anchor_for, is_rtl
 )
 from app.invoice_logic import InvoiceCalculator, InvoiceValidator, format_saudi_number
 from ui.widgets import (
@@ -235,33 +235,20 @@ class InvoiceForm(ttk.Frame):
         # === Customer Section ===
         self.customer_frame = FormSection(self.scrollable_frame, "معلومات العميل")
         self.customer_frame.pack(fill='x', padx=10, pady=5)
-        
-        row1 = ttk.Frame(self.customer_frame)
-        row1.pack(fill='x', pady=2)
-        self.customer_row1 = row1
-        self.lbl_customer_tax = ttk.Label(row1, text="الرقم الضريبي:")
-        self.lbl_customer_tax.pack(side=ps, padx=5)
-        self.customer_tax = ArabicEntry(row1, width=20)
-        self.customer_tax.pack(side=ps, padx=5)
-        self.spacer1 = ttk.Label(row1, text="   ")
-        self.spacer1.pack(side=ps)
-        self.lbl_customer_name = ttk.Label(row1, text="اسم العميل:")
-        self.lbl_customer_name.pack(side=ps, padx=5)
-        self.customer_name = ArabicEntry(row1, width=25)
-        self.customer_name.pack(side=ps, padx=5)
-        row2 = ttk.Frame(self.customer_frame)
-        row2.pack(fill='x', pady=2)
-        self.customer_row2 = row2
-        self.lbl_customer_address = ttk.Label(row2, text="العنوان:")
-        self.lbl_customer_address.pack(side=ps, padx=5)
-        self.customer_address = ArabicEntry(row2, width=20)
-        self.customer_address.pack(side=ps, padx=5)
-        self.spacer2 = ttk.Label(row2, text="   ")
-        self.spacer2.pack(side=ps)
-        self.lbl_customer_phone = ttk.Label(row2, text="الهاتف:")
-        self.lbl_customer_phone.pack(side=ps, padx=5)
-        self.customer_phone = ArabicEntry(row2, width=15)
-        self.customer_phone.pack(side=ps, padx=5)
+
+        self.customer_grid = ttk.Frame(self.customer_frame)
+        self.customer_grid.pack(fill='x', padx=5, pady=2)
+
+        self.lbl_customer_tax = ttk.Label(self.customer_grid, text="الرقم الضريبي:")
+        self.customer_tax = ArabicEntry(self.customer_grid, width=10)
+        self.lbl_customer_name = ttk.Label(self.customer_grid, text="اسم العميل:")
+        self.customer_name = ArabicEntry(self.customer_grid, width=12)
+        self.lbl_customer_address = ttk.Label(self.customer_grid, text="العنوان:")
+        self.customer_address = ArabicEntry(self.customer_grid, width=10)
+        self.lbl_customer_phone = ttk.Label(self.customer_grid, text="الهاتف:")
+        self.customer_phone = ArabicEntry(self.customer_grid, width=8)
+
+        self._layout_customer_fields(self.lang)
         
         # === Items Section ===
         self.items_frame = FormSection(self.scrollable_frame, "الأصناف")
@@ -374,6 +361,55 @@ class InvoiceForm(ttk.Frame):
         """Resize inner frame when canvas resizes."""
         if event and hasattr(self, 'canvas_window_id'):
             self.main_canvas.itemconfig(self.canvas_window_id, width=event.width)
+
+    def _layout_customer_fields(self, lang: str) -> None:
+        """Layout customer fields in a consistent grid for alignment."""
+        rtl = is_rtl(lang)
+        stk = sticky_for(lang)
+
+        if rtl:
+            self.customer_grid.columnconfigure(0, weight=1)
+            self.customer_grid.columnconfigure(1, weight=0)
+            self.customer_grid.columnconfigure(2, weight=1)
+            self.customer_grid.columnconfigure(3, weight=0)
+        else:
+            self.customer_grid.columnconfigure(0, weight=0)
+            self.customer_grid.columnconfigure(1, weight=1)
+            self.customer_grid.columnconfigure(2, weight=0)
+            self.customer_grid.columnconfigure(3, weight=1)
+
+        for w in [
+            self.lbl_customer_tax, self.customer_tax,
+            self.lbl_customer_name, self.customer_name,
+            self.lbl_customer_address, self.customer_address,
+            self.lbl_customer_phone, self.customer_phone,
+        ]:
+            w.grid_forget()
+
+        if rtl:
+            # Row 0: [name][entry][tax][entry] (right-to-left)
+            self.lbl_customer_name.grid(row=0, column=3, sticky=stk, padx=5, pady=2)
+            self.customer_name.grid(row=0, column=2, sticky='ew', padx=5, pady=2)
+            self.lbl_customer_tax.grid(row=0, column=1, sticky=stk, padx=5, pady=2)
+            self.customer_tax.grid(row=0, column=0, sticky='ew', padx=5, pady=2)
+
+            # Row 1: [phone][entry][address][entry]
+            self.lbl_customer_phone.grid(row=1, column=3, sticky=stk, padx=5, pady=2)
+            self.customer_phone.grid(row=1, column=2, sticky='ew', padx=5, pady=2)
+            self.lbl_customer_address.grid(row=1, column=1, sticky=stk, padx=5, pady=2)
+            self.customer_address.grid(row=1, column=0, sticky='ew', padx=5, pady=2)
+        else:
+            # Row 0: [tax][entry][name][entry]
+            self.lbl_customer_tax.grid(row=0, column=0, sticky=stk, padx=5, pady=2)
+            self.customer_tax.grid(row=0, column=1, sticky='ew', padx=5, pady=2)
+            self.lbl_customer_name.grid(row=0, column=2, sticky=stk, padx=5, pady=2)
+            self.customer_name.grid(row=0, column=3, sticky='ew', padx=5, pady=2)
+
+            # Row 1: [address][entry][phone][entry]
+            self.lbl_customer_address.grid(row=1, column=0, sticky=stk, padx=5, pady=2)
+            self.customer_address.grid(row=1, column=1, sticky='ew', padx=5, pady=2)
+            self.lbl_customer_phone.grid(row=1, column=2, sticky=stk, padx=5, pady=2)
+            self.customer_phone.grid(row=1, column=3, sticky='ew', padx=5, pady=2)
 
     def _load_settings(self):
         """Load company settings for VAT rate"""
@@ -570,20 +606,7 @@ class InvoiceForm(ttk.Frame):
         stk = sticky_for(self.lang)
         jf = justify_for(self.lang)
 
-        for w in [self.lbl_customer_tax, self.customer_tax, self.spacer1, self.lbl_customer_name, self.customer_name]:
-            w.pack_forget()
-        self.lbl_customer_tax.pack(side=ps, padx=5)
-        self.customer_tax.pack(side=ps, padx=5)
-        self.spacer1.pack(side=ps)
-        self.lbl_customer_name.pack(side=ps, padx=5)
-        self.customer_name.pack(side=ps, padx=5)
-        for w in [self.lbl_customer_address, self.customer_address, self.spacer2, self.lbl_customer_phone, self.customer_phone]:
-            w.pack_forget()
-        self.lbl_customer_address.pack(side=ps, padx=5)
-        self.customer_address.pack(side=ps, padx=5)
-        self.spacer2.pack(side=ps)
-        self.lbl_customer_phone.pack(side=ps, padx=5)
-        self.customer_phone.pack(side=ps, padx=5)
+        self._layout_customer_fields(self.lang)
 
         for lbl in self.item_header_labels:
             lbl.pack_forget()

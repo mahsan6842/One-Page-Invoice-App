@@ -12,12 +12,13 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.database import get_database
-from app.i18n import LANG_AR, LANG_EN, t, set_current_lang, pack_side, pack_side_opposite
+from app.i18n import LANG_AR, LANG_EN, t, set_current_lang
 from ui.invoice_form import InvoiceForm
 from ui.invoice_history import InvoiceHistory
 from ui.invoice_view import InvoiceView
 from ui.settings import SettingsScreen
 from ui.widgets import StatusBar
+from ui.style import setup_styles, BASE_BG
 
 
 class MainWindow:
@@ -42,7 +43,6 @@ class MainWindow:
         
         # Create UI
         self._create_menu()
-        self._create_toolbar()
         self._create_notebook()
         self._create_statusbar()
 
@@ -58,20 +58,9 @@ class MainWindow:
     def _configure_styles(self):
         """Configure ttk styles"""
         style = ttk.Style()
-        
-        # Use clam theme for better customization
-        try:
-            style.theme_use('clam')
-        except:
-            pass
-        
-        # Configure fonts
-        default_font = ('Arial', 10)
-        style.configure('.', font=default_font)
-        style.configure('TButton', padding=5)
-        style.configure('TNotebook.Tab', padding=[15, 5], font=('Arial', 11))
-        style.configure('Treeview', rowheight=28)
-        style.configure('Treeview.Heading', font=('Arial', 10, 'bold'))
+        setup_styles(style)
+        self.root.configure(bg=BASE_BG)
+        style.configure('TNotebook.Tab', padding=[15, 5], font=('Segoe UI', 11))
     
     def _create_menu(self):
         """Create menu bar"""
@@ -120,31 +109,6 @@ class MainWindow:
         
         # Keyboard shortcuts
         self.root.bind('<Control-n>', lambda e: self._new_invoice())
-    
-    def _create_toolbar(self):
-        """Create toolbar"""
-        self.toolbar = ttk.Frame(self.root)
-        self.toolbar.pack(fill='x', padx=5, pady=5)
-        ps = pack_side(self.lang)
-        pso = pack_side_opposite(self.lang)
-        self.btn_home = ttk.Button(self.toolbar, text=t("toolbar.home", self.lang),
-                                   command=lambda: self._switch_tab(0), width=12)
-        self.btn_home.pack(side=ps, padx=2)
-        self.btn_history = ttk.Button(self.toolbar, text=t("toolbar.history", self.lang),
-                                      command=lambda: self._switch_tab(1), width=12)
-        self.btn_history.pack(side=ps, padx=2)
-        self.btn_settings = ttk.Button(self.toolbar, text=t("toolbar.settings", self.lang),
-                                       command=lambda: self._switch_tab(2), width=12)
-        self.btn_settings.pack(side=ps, padx=2)
-        self.toolbar_sep = ttk.Separator(self.toolbar, orient='vertical')
-        self.toolbar_sep.pack(side=ps, fill='y', padx=10)
-        self.btn_new_invoice = ttk.Button(self.toolbar, text=t("toolbar.newInvoice", self.lang),
-                                          command=self._new_invoice, width=15)
-        self.btn_new_invoice.pack(side=ps, padx=2)
-        settings = self.db.get_company_settings()
-        self.company_label = ttk.Label(self.toolbar, text=settings.get('company_name_ar', 'نظام الفواتير'),
-                                       font=('Arial', 12, 'bold'))
-        self.company_label.pack(side=pso, padx=10)
     
     def _create_notebook(self):
         """Create tabbed interface"""
@@ -230,29 +194,6 @@ class MainWindow:
             self.help_menu.entryconfigure(0, label=t("menu.about", lang))
         except Exception:
             pass
-
-        # Toolbar - repack for direction
-        ps, pso = pack_side(lang), pack_side_opposite(lang)
-        for w in [self.btn_home, self.btn_history, self.btn_settings, self.toolbar_sep, self.btn_new_invoice]:
-            w.pack_forget()
-        self.btn_home.pack(side=ps, padx=2)
-        self.btn_history.pack(side=ps, padx=2)
-        self.btn_settings.pack(side=ps, padx=2)
-        self.toolbar_sep.pack(side=ps, fill='y', padx=10)
-        self.btn_new_invoice.pack(side=ps, padx=2)
-        self.company_label.pack_forget()
-        self.company_label.pack(side=pso, padx=10)
-        self.btn_home.configure(text=t("toolbar.home", lang))
-        self.btn_history.configure(text=t("toolbar.history", lang))
-        self.btn_settings.configure(text=t("toolbar.settings", lang))
-        self.btn_new_invoice.configure(text=t("toolbar.newInvoice", lang))
-
-        # Company name: switch between stored ar/en fields
-        settings = self.db.get_company_settings()
-        if (lang or LANG_AR) == LANG_EN and settings.get("company_name_en"):
-            self.company_label.configure(text=settings.get("company_name_en"))
-        else:
-            self.company_label.configure(text=settings.get("company_name_ar", "Invoice System"))
 
         # Notebook tabs
         try:
